@@ -167,8 +167,7 @@ final readonly class CollectionConfigurator implements FieldConfiguratorInterfac
                 throw new \RuntimeException(sprintf('The "%s" collection field of "%s" wants to render its entries using an EasyAdmin CRUD form. However, no CRUD form was found related to this field. You can either create a CRUD controller for the entity "%s" or pass the CRUD controller to use as the first argument of the "useEntryCrudForm()" method.', $fieldDto->getProperty(), $context->getCrud()?->getControllerFqcn(), $entityDtoResolved->getClassMetadata()->getAssociationTargetClass($resolvedProperty)));
             }
         } elseif (null === $fieldDto->getFormTypeOption('entry_type')
-            && $entityDtoResolved->getClassMetadata()->hasAssociation($resolvedProperty)
-            && $entityDtoResolved->getClassMetadata()->getAssociationTargetClass($resolvedProperty)) {
+            && $entityDtoResolved->getClassMetadata()->hasAssociation($resolvedProperty)) {
             $targetCrudControllerFqcn = $context->getAdminControllers()->findCrudControllerByEntity($entityDtoResolved->getClassMetadata()->getAssociationTargetClass($resolvedProperty));
 
             if (null === $targetCrudControllerFqcn) {

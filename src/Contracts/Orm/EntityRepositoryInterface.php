@@ -14,5 +14,13 @@ use EasyCorp\Bundle\EasyAdminBundle\Dto\SearchDto;
 interface EntityRepositoryInterface
 {
     public function createQueryBuilder(SearchDto $searchDto, EntityDto $entityDto, FieldCollection $fields, FilterCollection $filters): QueryBuilder;
+
+    /**
+     * @return array{
+     * entity_dto: EntityDto,
+     * entity_alias: string,
+     * property_name: string,
+     * }
+     */
     public function resolveNestedAssociations(?QueryBuilder $queryBuilder, EntityDto $rootEntityDto, string $propertyName, bool $mustEndWithAssociation = false): array;
 }
