@@ -19,6 +19,9 @@ class ProjectIssue implements \Stringable
     #[ORM\JoinColumn(nullable: false)]
     private ?Project $project = null;
 
+    #[ORM\ManyToOne(targetEntity: Developer::class, inversedBy: 'issues')]
+    private ?Developer $assignedDeveloper = null;
+
     public function __toString(): string
     {
         return $this->name;
@@ -51,5 +54,15 @@ class ProjectIssue implements \Stringable
         $this->project = $project;
 
         return $this;
+    }
+
+    public function getAssignedDeveloper(): ?Developer
+    {
+        return $this->assignedDeveloper;
+    }
+
+    public function setAssignedDeveloper(?Developer $assignedDeveloper): void
+    {
+        $this->assignedDeveloper = $assignedDeveloper;
     }
 }

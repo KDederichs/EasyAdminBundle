@@ -2,6 +2,8 @@
 
 namespace EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Entity\ProjectDomain;
 
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -17,6 +19,14 @@ class Developer implements \Stringable
 
     #[ORM\ManyToOne(inversedBy: 'favouriteProjectOf')]
     private ?Project $favouriteProject = null;
+
+    #[ORM\OneToMany(targetEntity: ProjectIssue::class, mappedBy: 'assignedDeveloper')]
+    private Collection $issues;
+
+    public function __construct()
+    {
+        $this->issues = new ArrayCollection();
+    }
 
     public function __toString(): string
     {
@@ -50,5 +60,15 @@ class Developer implements \Stringable
         $this->favouriteProject = $favouriteProject;
 
         return $this;
+    }
+
+    public function getIssues(): Collection
+    {
+        return $this->issues;
+    }
+
+    public function setIssues(Collection $issues): void
+    {
+        $this->issues = $issues;
     }
 }
