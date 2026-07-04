@@ -449,6 +449,7 @@ class EntityRepositoryTest extends TestCase
         $queryBuilder = $this->createMock(QueryBuilder::class);
         $queryBuilder->expects(self::once())->method('leftJoin');
 
+        //This is called 2 times with the same parameters on purpose to verify it's only joined once.
         $this->entityRepository->resolveNestedAssociations($queryBuilder, $rootEntityDto, 'author.name');
         $this->entityRepository->resolveNestedAssociations($queryBuilder, $rootEntityDto, 'author.name');
     }
