@@ -8,12 +8,11 @@ use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FieldCollection;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FilterCollection;
-use EasyCorp\Bundle\EasyAdminBundle\Contracts\Field\FieldInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Factory\EntityFactoryInterface;
+use EasyCorp\Bundle\EasyAdminBundle\Contracts\Field\FieldInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Provider\AdminContextProviderInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\SearchDto;
-use EasyCorp\Bundle\EasyAdminBundle\Factory\EntityFactory;
 use EasyCorp\Bundle\EasyAdminBundle\Factory\FormFactory;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Field;
 use EasyCorp\Bundle\EasyAdminBundle\Orm\EntityRepository;
@@ -449,7 +448,7 @@ class EntityRepositoryTest extends TestCase
         $queryBuilder = $this->createMock(QueryBuilder::class);
         $queryBuilder->expects(self::once())->method('leftJoin');
 
-        //This is called 2 times with the same parameters on purpose to verify it's only joined once.
+        // This is called 2 times with the same parameters on purpose to verify it's only joined once.
         $this->entityRepository->resolveNestedAssociations($queryBuilder, $rootEntityDto, 'author.name');
         $this->entityRepository->resolveNestedAssociations($queryBuilder, $rootEntityDto, 'author.name');
     }

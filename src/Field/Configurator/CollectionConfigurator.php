@@ -144,7 +144,6 @@ final readonly class CollectionConfigurator implements FieldConfiguratorInterfac
             return;
         }
 
-
         $resolvedProperty = $this->entityRepository->resolveNestedAssociations(null, $entityDto, $fieldDto->getProperty(), true);
         /** @var EntityDto $entityDtoResolved */
         $entityDtoResolved = $resolvedProperty['entity_dto'];
@@ -178,7 +177,6 @@ final readonly class CollectionConfigurator implements FieldConfiguratorInterfac
         }
 
         $targetEntityFqcn = $entityDtoResolved->getClassMetadata()->getAssociationTargetClass($resolvedProperty);
-
 
         $editEntityDto = $this->createEntityDto(
             $targetEntityFqcn,
