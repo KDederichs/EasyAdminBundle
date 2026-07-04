@@ -71,4 +71,20 @@ If you prefer to not allow changing the property value in this way, use this opt
 
     yield BooleanField::new('...')->renderAsSwitch(false);
 
+Colored Switches
+~~~~~~~~~~~~~~~~
+
+By default the switch uses a neutral color when it's turned on. If you want to
+highlight its meaning, use one of the following methods to color the "on" state
+with the same colors as the ``success``, ``warning`` and ``danger`` buttons.
+These methods also enable the switch rendering, so you don't need to call
+``renderAsSwitch()`` too::
+
+    yield BooleanField::new('...')->renderAsSuccessSwitch();  // green when on
+    yield BooleanField::new('...')->renderAsWarningSwitch();  // amber when on
+    yield BooleanField::new('...')->renderAsDangerSwitch();   // red when on
+
+The color is applied everywhere the field is rendered as a switch (the ``index``
+toggle and the ``edit``/``new`` forms). The "off" state always uses the neutral color.
+
 .. _`CheckboxType`: https://symfony.com/doc/current/reference/forms/types/checkbox.html

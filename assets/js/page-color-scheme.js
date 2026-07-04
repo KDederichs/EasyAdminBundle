@@ -22,6 +22,13 @@ class ColorSchemeHandler {
         const colorSchemeSelectors = document.querySelectorAll('.dropdown-settings');
         const currentScheme = localStorage.getItem(this.#colorSchemeLocalStorageKey) || 'auto';
 
+        // toggle the selected state via aria-checked (this drives the trailing checkmark
+        // shown by CSS); the legacy `active` class is kept in sync for one release
+        const setChecked = (el, isChecked) => {
+            el.setAttribute('aria-checked', isChecked ? 'true' : 'false');
+            el.classList.toggle('active', isChecked);
+        };
+
         colorSchemeSelectors.forEach((colorSchemeSelector) => {
             const selectorOptions = colorSchemeSelector.querySelectorAll(
                 'a.dropdown-appearance-item[data-ea-color-scheme]'
@@ -30,10 +37,8 @@ class ColorSchemeHandler {
                 `a.dropdown-appearance-item[data-ea-color-scheme="${currentScheme}"]`
             );
 
-            selectorOptions.forEach((selector) => {
-                selector.classList.remove('active');
-            });
-            selectorActiveOption.classList.add('active');
+            selectorOptions.forEach((selector) => setChecked(selector, false));
+            setChecked(selectorActiveOption, true);
 
             selectorOptions.forEach((selector) => {
                 selector.addEventListener('click', () => {
@@ -46,12 +51,8 @@ class ColorSchemeHandler {
                     const allSelectorActiveOptions = document.querySelectorAll(
                         `a.dropdown-appearance-item[data-ea-color-scheme="${selectedColorScheme}"]`
                     );
-                    allSelectorOptions.forEach((selectorOption) => {
-                        selectorOption.classList.remove('active');
-                    });
-                    allSelectorActiveOptions.forEach((selectorOption) => {
-                        selectorOption.classList.add('active');
-                    });
+                    allSelectorOptions.forEach((selectorOption) => setChecked(selectorOption, false));
+                    allSelectorActiveOptions.forEach((selectorOption) => setChecked(selectorOption, true));
                 });
             });
         });

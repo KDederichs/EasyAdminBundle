@@ -41,8 +41,9 @@ class UrlFieldTest extends AbstractFieldFunctionalTest
 
     public function testUrlFieldDisplaysOnDetail(): void
     {
+        $url = 'https://www.detailed.example.org/path';
         $entity = $this->createFieldTestEntity([
-            'urlField' => 'https://detailed.example.org/path',
+            'urlField' => $url,
         ]);
 
         $crawler = $this->client->request('GET', $this->generateDetailUrl($entity->getId()));
@@ -56,8 +57,11 @@ class UrlFieldTest extends AbstractFieldFunctionalTest
 
             if (false !== stripos($label, 'UrlField') || false !== stripos($label, 'Url Field') || false !== stripos($label, 'URL')) {
                 $urlFieldFound = true;
-                $fieldValue = $groupCrawler->filter('.field-value');
-                static::assertStringContainsString('detailed.example.org', $fieldValue->text());
+                $urlLink = $groupCrawler->filter('.field-value a');
+                static::assertGreaterThan(0, $urlLink->count(), 'UrlField should render as a link on the detail page');
+                static::assertSame($url, $urlLink->attr('href'));
+                // the displayed text should be "pretty" (without https://, www., trailing /)
+                static::assertSame('detailed.example.org/path', trim($urlLink->text()));
                 break;
             }
         }

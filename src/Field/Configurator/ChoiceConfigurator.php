@@ -10,6 +10,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Dto\FieldDto;
 use EasyCorp\Bundle\EasyAdminBundle\Field\ChoiceField;
 use EasyCorp\Bundle\EasyAdminBundle\Translation\TranslatableChoiceMessage;
 use EasyCorp\Bundle\EasyAdminBundle\Translation\TranslatableChoiceMessageCollection;
+use EasyCorp\Bundle\EasyAdminBundle\Twig\Component\Option\BadgeVariant;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Translation\TranslatableMessage;
@@ -78,6 +79,8 @@ final class ChoiceConfigurator implements FieldConfiguratorInterface
         if ($areChoicesTranslatable && !$choicesSupportTranslatableInterface) {
             $field->setFormTypeOptionIfNotSet('choices', array_keys($choices));
             $field->setFormTypeOptionIfNotSet('choice_label', static fn ($value) => $choices[$value]);
+        } elseif ($choicesSupportTranslatableInterface && $allChoicesAreEnums) {
+            $field->setFormTypeOptionIfNotSet('choices', array_values($choices));
         } else {
             $field->setFormTypeOptionIfNotSet('choices', $choices);
         }
@@ -94,9 +97,10 @@ final class ChoiceConfigurator implements FieldConfiguratorInterface
 
         if (ChoiceField::WIDGET_AUTOCOMPLETE === $field->getCustomOption(ChoiceField::OPTION_WIDGET)) {
             $field->setFormTypeOption('attr.data-ea-widget', 'ea-autocomplete');
-            if ('' === $field->getDefaultColumns()) {
-                $field->setDefaultColumns($isMultipleChoice ? 'col-md-8 col-xxl-6' : 'col-md-6 col-xxl-5');
-            }
+        }
+
+        if ('' === $field->getDefaultColumns()) {
+            $field->setDefaultColumns($isMultipleChoice ? 'col-md-8 col-xxl-6' : 'col-md-6 col-xxl-5');
         }
 
         $field->setFormTypeOptionIfNotSet('placeholder', '');
@@ -151,7 +155,7 @@ final class ChoiceConfigurator implements FieldConfiguratorInterface
                 /** @var TranslatableMessage $choiceMessage */
                 $choiceMessages[] = new TranslatableChoiceMessage(
                     $choiceMessage,
-                    $isRenderedAsBadge ? $this->getBadgeCssClass($badgeSelector, $selectedValue, $field) : null
+                    $isRenderedAsBadge ? $this->getBadgeVariant($badgeSelector, $selectedValue, $field) : null
                 );
             }
         }
@@ -177,27 +181,32 @@ final class ChoiceConfigurator implements FieldConfiguratorInterface
     }
 
     /**
+     * Returns the bare badge variant (e.g. 'secondary', 'warning'). The badge markup is
+     * rendered by the <twig:ea:Badge> component in templates/crud/field/choice.html.twig.
+     *
      * @param array<string>|bool|callable|null $badgeSelector
      */
-    private function getBadgeCssClass(array|bool|callable|null $badgeSelector, mixed $value, FieldDto $field): string
+    private function getBadgeVariant(array|bool|callable|null $badgeSelector, mixed $value, FieldDto $field): string
     {
-        $commonBadgeCssClass = 'badge';
-
-        $badgeType = '';
         if (true === $badgeSelector) {
-            $badgeType = 'badge-secondary';
-        } elseif (\is_array($badgeSelector)) {
-            $badgeType = $badgeSelector[$value] ?? 'badge-secondary';
-        } elseif (\is_callable($badgeSelector)) {
+            return BadgeVariant::Secondary->value;
+        }
+
+        if (\is_array($badgeSelector)) {
+            // for backwards compatibility, accept both 'warning' and 'badge-warning'
+            return u($badgeSelector[$value] ?? BadgeVariant::Secondary->value)->trimPrefix('badge-')->toString();
+        }
+
+        if (\is_callable($badgeSelector)) {
             $badgeType = $badgeSelector($value, $field);
             if (!\in_array($badgeType, ChoiceField::VALID_BADGE_TYPES, true)) {
                 throw new \RuntimeException(sprintf('The value returned by the callable passed to the "renderAsBadges()" method must be one of the following valid badge types: "%s" ("%s" given).', implode(', ', ChoiceField::VALID_BADGE_TYPES), $badgeType));
             }
+
+            return $badgeType;
         }
 
-        $badgeTypeCssClass = '' === $badgeType ? '' : u($badgeType)->ensureStart('badge-')->toString();
-
-        return $commonBadgeCssClass.' '.$badgeTypeCssClass;
+        return BadgeVariant::Secondary->value;
     }
 
     /**

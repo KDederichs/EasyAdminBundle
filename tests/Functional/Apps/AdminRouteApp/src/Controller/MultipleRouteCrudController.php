@@ -3,6 +3,7 @@
 namespace EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\AdminRouteApp\Controller;
 
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
+use EasyCorp\Bundle\EasyAdminBundle\Context\AdminContext;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\AdminRouteApp\Entity\Product;
 use Symfony\Component\HttpFoundation\Response;
@@ -58,5 +59,26 @@ class MultipleRouteCrudController extends AbstractCrudController
     public function customAction6(): Response
     {
         return new Response('Custom Action 6');
+    }
+
+    // custom action using the "{id}" placeholder (alias of "{entityId}"). This is the cleaner,
+    // forward-looking form that also lets Symfony's MapEntity resolve a typed argument natively.
+    #[AdminRoute('/safe-delete-id/{id}', 'safe_delete_id', options: ['methods' => ['POST']])]
+    public function safeDeleteById($id): Response
+    {
+        return new Response('Safe delete by id: '.$id);
+    }
+
+    // custom action that reads the entity loaded by EasyAdmin from the "{id}" placeholder, to prove
+    // that AdminContext::getEntity() works the same with "{id}" as it does with "{entityId}".
+    #[AdminRoute('/detail-by-id/{id}', 'detail_by_id', options: ['methods' => ['GET']])]
+    public function detailById(AdminContext $context): Response
+    {
+        $instance = $context->getEntity()?->getInstance();
+
+        return new Response(sprintf(
+            'Detail by id: %s',
+            $instance instanceof Product ? $instance->getId().':'.$instance->getName() : 'NO ENTITY'
+        ));
     }
 }

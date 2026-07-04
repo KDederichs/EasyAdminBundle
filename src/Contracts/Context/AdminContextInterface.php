@@ -66,7 +66,4 @@ interface AdminContextInterface
     public function getSearch(): ?SearchDto;
 
     public function getTemplatePath(string $templateName): string;
-
-    /** @deprecated since easycorp/easyadmin-bundle 5.0.0 and will be removed in EasyAdmin 5.1.0. This method always returns true. */
-    public function usePrettyUrls(): bool;
 }

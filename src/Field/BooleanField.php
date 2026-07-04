@@ -16,6 +16,7 @@ final class BooleanField implements FieldInterface
     use FieldTrait;
 
     public const OPTION_RENDER_AS_SWITCH = 'renderAsSwitch';
+    public const OPTION_SWITCH_VARIANT = 'switchVariant';
     public const OPTION_HIDE_VALUE_WHEN_TRUE = 'hideValueWhenTrue';
     public const OPTION_HIDE_VALUE_WHEN_FALSE = 'hideValueWhenFalse';
     /** @internal */
@@ -41,6 +42,39 @@ final class BooleanField implements FieldInterface
     public function renderAsSwitch(bool $isASwitch = true): self
     {
         $this->setCustomOption(self::OPTION_RENDER_AS_SWITCH, $isASwitch);
+
+        return $this;
+    }
+
+    /**
+     * Renders the field as a switch whose "on" state uses the success (green) color.
+     */
+    public function renderAsSuccessSwitch(): self
+    {
+        $this->renderAsSwitch();
+        $this->setCustomOption(self::OPTION_SWITCH_VARIANT, 'success');
+
+        return $this;
+    }
+
+    /**
+     * Renders the field as a switch whose "on" state uses the warning (amber) color.
+     */
+    public function renderAsWarningSwitch(): self
+    {
+        $this->renderAsSwitch();
+        $this->setCustomOption(self::OPTION_SWITCH_VARIANT, 'warning');
+
+        return $this;
+    }
+
+    /**
+     * Renders the field as a switch whose "on" state uses the danger (red) color.
+     */
+    public function renderAsDangerSwitch(): self
+    {
+        $this->renderAsSwitch();
+        $this->setCustomOption(self::OPTION_SWITCH_VARIANT, 'danger');
 
         return $this;
     }

@@ -1,0 +1,8 @@
+{% extends '@EasyAdmin/page/content.html.twig' %}
+{% form_theme form with ['@EasyAdmin/crud/form_theme.html.twig'] only %}
+
+{% block content_title 'Custom Page with Form' %}
+
+{% block main %}
+    {{ form(form) }}
+{% endblock %}

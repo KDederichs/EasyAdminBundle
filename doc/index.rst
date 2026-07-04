@@ -25,15 +25,15 @@ Table of Contents
   custom voters)
 * :doc:`Events </events>` (entity events, CRUD events, JavaScript events)
 * :doc:`Tests </tests>` (functional testing, utilities, assertions)
-* :doc:`Upgrade </upgrade>` (from legacy versions)
+* :doc:`Upgrade </upgrade>` (from EasyAdmin 4)
 
 Technical Requirements
 ----------------------
 
 EasyAdmin requires the following:
 
-* PHP 8.1 or higher;
-* Symfony 5.4 or higher;
+* PHP 8.2 or higher;
+* Symfony 6.4 or higher;
 * Doctrine ORM entities (Doctrine ODM is not supported).
 
 Installation

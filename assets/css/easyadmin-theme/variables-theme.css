@@ -156,9 +156,15 @@
     --form-input-text-color: var(--gray-700);
     --form-input-group-text-bg: var(--form-control-bg);
     --form-input-group-text-border-color: var(--form-input-border-color);
-    --form-switch-bg: var(--body-bg);
-    --form-switch-border-color: var(--gray-400);
-    --form-switch-checked-bg: var(--indigo-500);
+    --switch-bg: var(--gray-300);
+    --switch-checked-bg: var(--indigo-500);
+    --switch-thumb-bg: var(--white);
+    --switch-focus-ring: rgba(99, 102, 241, 0.35);
+    /* switch color variants reuse the button variant colors (these forward to
+       scheme-aware tokens, so they resolve correctly in dark mode too) */
+    --switch-success-bg: var(--button-success-hover-bg);
+    --switch-warning-bg: var(--button-warning-hover-bg);
+    --switch-danger-bg: var(--button-danger-hover-bg);
     --form-type-check-input-border-color: var(--gray-400);
     --form-type-check-input-box-shadow: 0 1px 2px 0 var(--gray-50);
     --form-type-check-input-checked-bg: var(--indigo-500);
@@ -269,9 +275,6 @@
     --button-font-size-md: 14px;
     --button-font-size-lg: 16px;
     --button-line-height: 1.5;
-
-    --button-transition-duration: 80ms;
-    --button-transition-timing: cubic-bezier(0.65, 0, 0.35, 1);
 
     --button-disabled-opacity: 0.9;
 
@@ -429,6 +432,15 @@
     --border-color: hsl(213, 24%, 91%);
 }
 
+/* ----------------------------------------------------------------------------
+   Deprecated — don't use these. Kept only for backward compatibility.
+ --------------------------------------------------------------------------- */
+:root {
+    /* button transitions now use the shared --ea-transition-* primitives (utilities.css) */
+    --button-transition-duration: 80ms;
+    --button-transition-timing: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
 .ea-dark-scheme {
     --text-primary-color: var(--text-color);
     --text-secondary-color: var(--text-muted);
@@ -543,9 +555,10 @@
     --form-input-text-color: var(--true-gray-200);
     --form-input-group-text-bg: var(--true-gray-800);
     --form-input-group-text-border-color: var(--true-gray-600);
-    --form-switch-bg: var(--true-gray-600);
-    --form-switch-border-color: var(--true-gray-700);
-    --form-switch-checked-bg: var(--blue-600);
+    --switch-bg: var(--true-gray-600);
+    --switch-checked-bg: var(--blue-600);
+    --switch-thumb-bg: var(--gray-300);
+    --switch-focus-ring: rgba(90, 168, 252, 0.4);
     --form-type-check-input-border-color: var(--true-gray-400);
     --form-type-check-input-box-shadow: 0 1px 2px 0 var(--true-gray-800);
     --form-type-check-input-checked-bg: var(--blue-600);

@@ -8,12 +8,14 @@ use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FieldCollection;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FilterCollection;
+use EasyCorp\Bundle\EasyAdminBundle\Contracts\Field\FieldInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Factory\EntityFactoryInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Provider\AdminContextProviderInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\SearchDto;
 use EasyCorp\Bundle\EasyAdminBundle\Factory\EntityFactory;
 use EasyCorp\Bundle\EasyAdminBundle\Factory\FormFactory;
+use EasyCorp\Bundle\EasyAdminBundle\Field\Field;
 use EasyCorp\Bundle\EasyAdminBundle\Orm\EntityRepository;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -227,6 +229,159 @@ class EntityRepositoryTest extends TestCase
         $this->assertSame($queryBuilder, $result);
     }
 
+    public function testCustomSortByExposedSortableFieldIsApplied(): void
+    {
+        $entityDto = $this->createEntityDto('App\Entity\Product', ['displayedField']);
+        $fields = new FieldCollection([$this->createField('displayedField', true)]);
+        $searchDto = $this->createSearchDtoForSort(customSort: ['displayedField' => 'ASC']);
+
+        $queryBuilder = $this->createSortingQueryBuilder();
+        $queryBuilder->expects($this->once())
+            ->method('addOrderBy')
+            ->with('entity.displayedField', 'ASC');
+
+        $this->stubEntityManager($queryBuilder);
+
+        $this->entityRepository->createQueryBuilder($searchDto, $entityDto, $fields, new FilterCollection());
+    }
+
+    public function testCustomSortByFieldAbsentFromFieldCollectionIsIgnored(): void
+    {
+        // simulates ?sort[hiddenField]=ASC against a controller whose
+        // configureFields(INDEX) doesn't expose `hiddenField`
+        $entityDto = $this->createEntityDto('App\Entity\Product', ['hiddenField']);
+        $fields = new FieldCollection([]);
+        $searchDto = $this->createSearchDtoForSort(customSort: ['hiddenField' => 'ASC']);
+
+        $queryBuilder = $this->createSortingQueryBuilder();
+        $queryBuilder->expects($this->never())->method('addOrderBy');
+
+        $this->stubEntityManager($queryBuilder);
+
+        $this->entityRepository->createQueryBuilder($searchDto, $entityDto, $fields, new FilterCollection());
+    }
+
+    public function testCustomSortByExplicitlyNonSortableFieldIsIgnored(): void
+    {
+        $entityDto = $this->createEntityDto('App\Entity\Product', ['displayedField']);
+        $fields = new FieldCollection([$this->createField('displayedField', false)]);
+        $searchDto = $this->createSearchDtoForSort(customSort: ['displayedField' => 'ASC']);
+
+        $queryBuilder = $this->createSortingQueryBuilder();
+        $queryBuilder->expects($this->never())->method('addOrderBy');
+
+        $this->stubEntityManager($queryBuilder);
+
+        $this->entityRepository->createQueryBuilder($searchDto, $entityDto, $fields, new FilterCollection());
+    }
+
+    public function testCustomSortKeyContainingCommaIsIgnored(): void
+    {
+        // ?sort[name,entity.email]=ASC — comma would smuggle an extra ORDER BY column
+        $entityDto = $this->createEntityDto('App\Entity\Product', ['displayedField']);
+        $fields = new FieldCollection([$this->createField('displayedField', true)]);
+        $searchDto = $this->createSearchDtoForSort(customSort: ['displayedField,entity.hiddenField' => 'ASC']);
+
+        $queryBuilder = $this->createSortingQueryBuilder();
+        $queryBuilder->expects($this->never())->method('addOrderBy');
+
+        $this->stubEntityManager($queryBuilder);
+
+        $this->entityRepository->createQueryBuilder($searchDto, $entityDto, $fields, new FilterCollection());
+    }
+
+    public function testCustomSortKeyContainingDotIsIgnored(): void
+    {
+        // ?sort[customer.secretField]=ASC — multi-segment keys reach the unfiltered
+        // multi-segment branch of applyOrderClause; URL-based association sort is
+        // supported via single-segment keys + AssociationField::setSortProperty()
+        $entityDto = $this->createEntityDto('App\Entity\Product', [], ['customer']);
+        $fields = new FieldCollection([$this->createField('customer', true)]);
+        $searchDto = $this->createSearchDtoForSort(customSort: ['customer.secretField' => 'ASC']);
+
+        $queryBuilder = $this->createSortingQueryBuilder();
+        $queryBuilder->expects($this->never())->method('addOrderBy');
+        $queryBuilder->expects($this->never())->method('leftJoin');
+
+        $this->stubEntityManager($queryBuilder);
+
+        $this->entityRepository->createQueryBuilder($searchDto, $entityDto, $fields, new FilterCollection());
+    }
+
+    public function testCustomSortWithNonAscDescValueIsIgnored(): void
+    {
+        // ?sort[displayedField]=ASC,%20entity.hiddenField%20DESC — Expr\OrderBy
+        // concatenates "$property $direction", so an unvalidated direction smuggles
+        // a second OrderByItem that the DQL parser happily accepts
+        $entityDto = $this->createEntityDto('App\Entity\Product', ['displayedField']);
+        $fields = new FieldCollection([$this->createField('displayedField', true)]);
+        $searchDto = $this->createSearchDtoForSort(customSort: ['displayedField' => 'ASC, entity.hiddenField DESC']);
+
+        $queryBuilder = $this->createSortingQueryBuilder();
+        $queryBuilder->expects($this->never())->method('addOrderBy');
+
+        $this->stubEntityManager($queryBuilder);
+
+        $this->entityRepository->createQueryBuilder($searchDto, $entityDto, $fields, new FilterCollection());
+    }
+
+    public function testInvalidCustomSortFallsBackToDefaultSortForSameKey(): void
+    {
+        // ?sort[hiddenField]=ASC must not suppress setDefaultSort(['hiddenField' => 'DESC']):
+        // the customSort entry is rejected, the defaultSort entry still applies
+        $entityDto = $this->createEntityDto('App\Entity\Product', ['hiddenField']);
+        $fields = new FieldCollection([]);
+        $searchDto = $this->createSearchDtoForSort(
+            customSort: ['hiddenField' => 'ASC'],
+            defaultSort: ['hiddenField' => 'DESC'],
+        );
+
+        $queryBuilder = $this->createSortingQueryBuilder();
+        $queryBuilder->expects($this->once())
+            ->method('addOrderBy')
+            ->with('entity.hiddenField', 'DESC');
+
+        $this->stubEntityManager($queryBuilder);
+
+        $this->entityRepository->createQueryBuilder($searchDto, $entityDto, $fields, new FilterCollection());
+    }
+
+    public function testDefaultSortByFieldAbsentFromFieldCollectionIsStillApplied(): void
+    {
+        // developer-supplied default sort is trusted unconditionally
+        $entityDto = $this->createEntityDto('App\Entity\Product', ['createdAt']);
+        $fields = new FieldCollection([]);
+        $searchDto = $this->createSearchDtoForSort(defaultSort: ['createdAt' => 'DESC']);
+
+        $queryBuilder = $this->createSortingQueryBuilder();
+        $queryBuilder->expects($this->once())
+            ->method('addOrderBy')
+            ->with('entity.createdAt', 'DESC');
+
+        $this->stubEntityManager($queryBuilder);
+
+        $this->entityRepository->createQueryBuilder($searchDto, $entityDto, $fields, new FilterCollection());
+    }
+
+    public function testValidCustomSortOverridesDefaultSortForSameKey(): void
+    {
+        $entityDto = $this->createEntityDto('App\Entity\Product', ['displayedField']);
+        $fields = new FieldCollection([$this->createField('displayedField', true)]);
+        $searchDto = $this->createSearchDtoForSort(
+            customSort: ['displayedField' => 'ASC'],
+            defaultSort: ['displayedField' => 'DESC'],
+        );
+
+        $queryBuilder = $this->createSortingQueryBuilder();
+        $queryBuilder->expects($this->once())
+            ->method('addOrderBy')
+            ->with('entity.displayedField', 'ASC');
+
+        $this->stubEntityManager($queryBuilder);
+
+        $this->entityRepository->createQueryBuilder($searchDto, $entityDto, $fields, new FilterCollection());
+    }
+
     public function testResolveNestedAssociationsWithSimpleProperty(): void
     {
         $rootEntityDto = $this->createEntityDto('App\Entity\Post', ['title' => ['type' => 'string']], []);
@@ -339,6 +494,53 @@ class EntityRepositoryTest extends TestCase
             [], // customSort
             $appliedFilters
         );
+    }
+
+    /**
+     * @param array<string, string> $customSort
+     * @param array<string, string> $defaultSort
+     */
+    private function createSearchDtoForSort(array $customSort = [], array $defaultSort = []): SearchDto
+    {
+        return new SearchDto(new Request(), null, '', $defaultSort, $customSort, []);
+    }
+
+    private function createField(string $property, bool $sortable): FieldInterface
+    {
+        $field = Field::new($property);
+        $field->setSortable($sortable);
+
+        return $field;
+    }
+
+    /**
+     * Builds a QueryBuilder mock pre-wired for the select/from/getAllAliases
+     * calls EntityRepository::createQueryBuilder makes before addOrderClause runs.
+     */
+    private function createSortingQueryBuilder(): QueryBuilder
+    {
+        $queryBuilder = $this->createMock(QueryBuilder::class);
+        $queryBuilder->method('select')->willReturnSelf();
+        $queryBuilder->method('from')->willReturnSelf();
+        $queryBuilder->method('getAllAliases')->willReturn(['entity']);
+
+        return $queryBuilder;
+    }
+
+    private function stubEntityManager(QueryBuilder $queryBuilder): void
+    {
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->method('createQueryBuilder')->willReturn($queryBuilder);
+        $this->doctrine->method('getManagerForClass')->willReturn($entityManager);
+    }
+
+    /**
+     * Creates a stub for EntityFactory using reflection since it's a final class.
+     */
+    private function createEntityFactoryStub(): EntityFactory
+    {
+        return (new \ReflectionClass(EntityFactory::class))
+            ->newInstanceWithoutConstructor();
     }
 
     /**

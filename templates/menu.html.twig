@@ -41,6 +41,11 @@
     {% endfor %}
 {% endmacro %}
 
+{% macro render_menu_badge(badge) %}
+    {%- set badge_attributes = badge.htmlStyle ? badge.htmlAttributes|merge({style: badge.htmlStyle}) : badge.htmlAttributes -%}
+    <twig:ea:Badge variant="{{ badge.cssClass|replace({'badge-': ''}) }}" radius="full" class="menu-item-badge" {{ ...badge_attributes }}>{{ badge.content }}</twig:ea:Badge>
+{%- endmacro %}
+
 {% macro render_menu_item(item) %}
     {% if item.isMenuSection %}
         <span class="menu-header-contents" {{ _self.render_html_attributes(item) }}>
@@ -49,7 +54,7 @@
                 {{ item.label|trans|raw }}
             </span>
             {% if item.badge %}
-                <span class="menu-item-badge rounded-pill badge {{ item.badge.cssClass }}" {{ _self.render_html_attributes(item.badge) }} style="{{ item.badge.htmlStyle }}">{{ item.badge.content }}</span>
+                {{ _self.render_menu_badge(item.badge) }}
             {% endif %}
         </span>
     {% else %}
@@ -60,7 +65,7 @@
             </span>
             {% if item.hasSubItems %}<twig:ea:Icon name="internal:chevron-right" class="submenu-toggle-icon" />{% endif %}
             {% if item.hasVisibleBadge %}
-                <span class="menu-item-badge rounded-pill badge {{ item.badge.cssClass }}" {{ _self.render_html_attributes(item.badge) }} style="{{ item.badge.htmlStyle }}">{{ item.badge.content }}</span>
+                {{ _self.render_menu_badge(item.badge) }}
             {% endif %}
         </a>
     {% endif %}

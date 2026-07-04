@@ -5,9 +5,9 @@ help: ## Show help
 	@grep -E '(^[a-zA-Z0-9_-]+:.*?##.*$$)|(^##)' Makefile | awk 'BEGIN {FS = ":.*?## "}{printf "\033[32m%-30s\033[0m %s\n", $$1, $$2}' | sed -e 's/\[32m##/[33m/'
 
 ## —— Tests ———————————————————————————————————
-tests: ## Run tests
+tests: ## Run tests (optional ARGS, e.g. make tests ARGS="tests/Unit/Field/" or ARGS="--filter=testFoo")
 	rm -rf $(shell php -r "echo sys_get_temp_dir();")/com.github.easycorp.easyadmin/tests/var/test/cache/*
-	SYMFONY_DEPRECATIONS_HELPER="$${SYMFONY_DEPRECATIONS_HELPER:-ignoreFile=./tests/baseline-ignore.txt}" php vendor/bin/simple-phpunit -v
+	SYMFONY_DEPRECATIONS_HELPER="$${SYMFONY_DEPRECATIONS_HELPER:-ignoreFile=./tests/baseline-ignore.txt}" php vendor/bin/simple-phpunit -v $(ARGS)
 tests-coverage: ## Generate test coverage
 	rm -rf $(shell php -r "echo sys_get_temp_dir();")/com.github.easycorp.easyadmin/tests/var/test/cache/*
 	XDEBUG_MODE=coverage php vendor/bin/simple-phpunit --coverage-html $(shell php -r "echo sys_get_temp_dir();")/com.github.easycorp.easyadmin/tests/var/test/coverage/

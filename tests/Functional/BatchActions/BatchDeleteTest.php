@@ -7,6 +7,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Test\AbstractCrudTestCase;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Controller\DashboardController;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Controller\Synthetic\BatchActionTestEntityCrudController;
+use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Entity\Category;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Entity\Synthetic\BatchActionTestEntity;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Kernel;
 use Symfony\Component\DomCrawler\Crawler;
@@ -140,6 +141,31 @@ class BatchDeleteTest extends AbstractCrudTestCase
         self::assertSame($initialCount, $finalCount, 'No entities should have been deleted with non-existent ID');
     }
 
+    public function testBatchDeleteRejectsMismatchedEntityFqcn(): void
+    {
+        $categoryRepository = $this->entityManager->getRepository(Category::class);
+        $initialCategoryCount = \count($categoryRepository->findAll());
+        self::assertGreaterThan(0, $initialCategoryCount, 'Need at least 1 Category fixture for this test');
+
+        $targetCategoryId = $categoryRepository->findAll()[0]->getId();
+        $initialBatchEntityCount = \count($this->repository->findAll());
+
+        // simulate an attacker that can batchDelete on BatchActionTestEntityCrudController
+        // but targets a different Doctrine entity (Category) by overriding entityFqcn in
+        // the POST body. The attack must be blocked (either by the FQCN-bound CSRF token
+        // or by the explicit mismatch check) and no rows of any entity may be deleted.
+        $this->submitBatchDelete([$targetCategoryId], entityFqcnOverride: Category::class);
+
+        $this->entityManager->clear();
+
+        self::assertNotNull(
+            $categoryRepository->find($targetCategoryId),
+            'Category row must not be deleted by a cross-entity batchDelete attempt'
+        );
+        self::assertCount($initialCategoryCount, $categoryRepository->findAll());
+        self::assertCount($initialBatchEntityCount, $this->repository->findAll());
+    }
+
     public function testBatchDeleteRedirectsToIndexPage(): void
     {
         // get first entity ID
@@ -163,12 +189,14 @@ class BatchDeleteTest extends AbstractCrudTestCase
      * 2. Extracting the data attributes needed for submission
      * 3. Submitting a POST request with the same parameters the JavaScript would send
      *
-     * @param array $entityIds         The entity IDs to delete
-     * @param bool  $useValidCsrfToken Whether to use a valid CSRF token (false to test CSRF protection)
+     * @param array       $entityIds          The entity IDs to delete
+     * @param bool        $useValidCsrfToken  Whether to use a valid CSRF token (false to test CSRF protection)
+     * @param string|null $entityFqcnOverride When set, replaces the body's entityFqcn with this class (used to
+     *                                        simulate a cross-entity authorization-bypass attempt)
      *
      * @return Crawler The crawler after submitting the batch action
      */
-    private function submitBatchDelete(array $entityIds, bool $useValidCsrfToken = true): Crawler
+    private function submitBatchDelete(array $entityIds, bool $useValidCsrfToken = true, ?string $entityFqcnOverride = null): Crawler
     {
         $crawler = $this->client->request('GET', $this->generateIndexUrl());
         self::assertResponseIsSuccessful();
@@ -179,7 +207,7 @@ class BatchDeleteTest extends AbstractCrudTestCase
 
         $csrfToken = $useValidCsrfToken ? $batchDeleteButton->attr('data-action-csrf-token') : 'invalid-csrf-token';
         $batchActionUrl = $batchDeleteButton->attr('data-action-url');
-        $entityFqcn = $batchDeleteButton->attr('data-entity-fqcn');
+        $entityFqcn = $entityFqcnOverride ?? $batchDeleteButton->attr('data-entity-fqcn');
 
         // submit the batch delete action
         return $this->client->request('POST', $batchActionUrl, [

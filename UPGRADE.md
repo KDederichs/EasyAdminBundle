@@ -1,7 +1,19 @@
-UPGRADE FROM EASYADMIN 4.X to 5.X
-=================================
+Upgrade Guide
+=============
 
-## Pretty URLs
+## EasyAdmin 5.0.14
+
+The HTML markup of the boolean switch has changed. Before, the element wrapping
+the switch applied the `.form-switch` CSS class and the checkbox used the
+`.form-check-input` class. Now, the switch is rendered with the new
+`<twig:ea:Switch>` component: the wrapping element uses the `.ea-switch` class and
+the checkbox uses the `.ea-switch-input` class. This affects both the switch shown
+in the `index` page and the one displayed in the `edit`/`new` forms. Update any
+custom CSS or JavaScript that targeted the old selectors.
+
+## Upgrading from Symfony 4.x to 5.x
+
+### Pretty URLs
 
 Using pretty URLs is now mandatory. They are created with a custom route loader
 that must be enabled in your application. If you use Symfony Flex, this file is
@@ -14,7 +26,7 @@ easyadmin:
     type: easyadmin.routes
 ```
 
-## Admin Context
+### Admin Context
 
 The global `ea` variable injected in all templates is removed in favor of the
 equivalent `ea()` Twig function, which returns the current context of the
@@ -28,7 +40,7 @@ EasyAdmin application:
 {{ ea().i18n.translationDomain }}
 ```
 
-## Main Menus
+### Main Menus
 
 The `linkToCrud()` method used to link to CRUD controllers from the main menu of the
 dashboard was removed in favor of the new `linkTo()` method:
@@ -45,7 +57,77 @@ yield MenuItem::linkTo(BlogPostCrudController::class, 'Blog Posts', 'fa fa-file-
 yield MenuItem::linkTo(CommentCrudController::class);
 ```
 
-## Actions
+### Custom CRUD Actions
+
+Custom CRUD actions now require to apply the `#[AdminRoute]` attribute to them.
+Otherwise, they are ignored when generating routes for the backend and code
+like `->linkToCrudAction('foo')` will no longer work:
+
+```php
+// Before (4.x)
+use App\Entity\Comment;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
+use EasyCorp\Bundle\EasyAdminBundle\Context\AdminContext;
+use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
+use Symfony\Component\HttpFoundation\Response;
+
+class CommentCrudController extends AbstractCrudController
+{
+    // ...
+
+    public function configureActions(Actions $actions): Actions
+    {
+        return $actions
+            ->add(
+                Crud::PAGE_INDEX,
+                Action::new('markSpam', 'action.mark_spam')->linkToCrudAction('markCommentAsSpam')
+            )
+        ;
+    }
+
+    public function markCommentAsSpam(AdminContext $context): Response
+    {
+        /** @var Comment $comment */
+        $comment = $context->getEntity()->getInstance();
+
+        $comment->markAsSpam();
+        $this->entityManager->flush();
+
+        return $this->redirectToRoute('admin_comment_index');
+    }
+}
+
+// After (5.x)
+use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
+// ...
+
+class CommentCrudController extends AbstractCrudController
+{
+    // ...
+    
+    public function configureActions(Actions $actions): Actions
+    {
+        return $actions
+            ->add(
+                Crud::PAGE_INDEX,
+                Action::new('markSpam', 'action.mark_spam')->linkToCrudAction('markCommentAsSpam')
+            )
+        ;
+    }
+
+    #[AdminRoute('/{entityId:comment.id}/mark-as-spam')]
+    public function markCommentAsSpam(Comment $comment): Response
+    {
+        $comment->markAsSpam();
+        $this->entityManager->flush();
+
+        return $this->redirectToRoute('admin_comment_index');
+    }
+}
+```
+
+### Actions
 
 Some methods related to actions have been removed in favor of equivalent
 methods with better names:
@@ -62,7 +144,7 @@ $action->renderAsButton()->...
 $action->renderAsForm()->...
 ```
 
-## Referrers
+### Referrers
 
 EasyAdmin URLs no longer include the `referrer` query parameter, and the
 `AdminContext:getReferrer()` method was removed.
@@ -82,7 +164,7 @@ return $this->redirect($batchActionDto->getReferrer());
 return $this->redirect($adminContext->getRequest()->headers->get('referer'));
 ```
 
-## Forms
+### Forms
 
 Form panels are now called Form fieldsets and the `FormField::addPanel()` method
 was removed:
@@ -95,11 +177,16 @@ yield FormField::addPanel('...');
 yield FormField::addFieldset('...');
 ```
 
-## Contracts
+### Attributes
+
+The `#[AdminCrud]` and `#[AdminAction]` attributes have been removed in favor
+of the `#[AdminRoute]` attribute.
+
+### Contracts
 
 The following contract interfaces changed:
 
-### `Contracts\Context\AdminContextInterface`
+#### `Contracts\Context\AdminContextInterface`
 
 ```php
 // Before (4.x)
@@ -111,7 +198,7 @@ public function getAdminControllers(): AdminControllerRegistry;
 
 The `getSignedUrls()` and `getReferrer()` methods are removed.
 
-### `Contracts\Controller\CrudControllerInterface`
+#### `Contracts\Controller\CrudControllerInterface`
 
 ```php
 // Before (4.x)
@@ -121,7 +208,7 @@ public function createEntity(string $entityFqcn);
 public function createEntity(string $entityFqcn): object;
 ```
 
-### `Contracts\Orm\EntityPaginatorInterface`
+#### `Contracts\Orm\EntityPaginatorInterface`
 
 ```php
 // Before (4.x)
@@ -131,7 +218,7 @@ public function getResultsAsJson(): string;
 public function getResultsAsJson(?callable $callback = null, ?string $twigTemplate = null, bool $renderAsHtml = false): string;
 ```
 
-### `Contracts\Provider\AdminContextInterface`
+#### `Contracts\Provider\AdminContextInterface`
 
 ```php
 // Before (4.x)
@@ -142,13 +229,13 @@ public function hasContext(): bool;
 // alternative: check if getContext() return value is null
 ```
 
-### `Contracts\Menu\MenuItemMatcherInterface`
+#### `Contracts\Menu\MenuItemMatcherInterface`
 
 The `isSelected()` and `isExpanded()` methods were removed. A new
 `markSelectedMenuItem(array<MenuItemDto> $menuItems, Request $request)` method
 has been added.
 
-### `Contracts\Router\AdminRouteGeneratorInterface`
+#### `Contracts\Router\AdminRouteGeneratorInterface`
 
 ```php
 // Before (4.x)
@@ -160,7 +247,7 @@ public function findRouteName(string|null $dashboardFqcn = null, string|null $cr
 
 The `usesPrettyUrls()` method was removed.
 
-## Static Analysis
+### Static Analysis
 
 In 5.x, PHPStan will report an error if a class extends
 `AbstractCrudController` without specifying the entity type:

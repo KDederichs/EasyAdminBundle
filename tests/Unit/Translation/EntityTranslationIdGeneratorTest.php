@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 namespace EasyCorp\Bundle\EasyAdminBundle\Tests\Unit\Translation;
 
 use EasyCorp\Bundle\EasyAdminBundle\Translation\EntityTranslationIdGenerator;

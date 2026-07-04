@@ -2,4 +2,5 @@
 
 $container->loadFromExtension('twig', [
     'default_path' => '%kernel.project_dir%/templates',
+    'strict_variables' => true,
 ]);

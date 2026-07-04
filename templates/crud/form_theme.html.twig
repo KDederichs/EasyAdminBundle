@@ -73,7 +73,8 @@
     {% set row_attr = row_attr|merge({
         class: row_attr.class|default('') ~ ' form-group',
     }) %}
-    {% set field = form.vars.ea_vars.field %}
+    {# 'field' is null for Symfony forms not created with EasyAdmin fields (e.g. custom forms rendered on custom dashboard pages) #}
+    {% set field = form.vars.ea_vars.field|default(null) %}
 
     <div class="{{ field.columns ?? field.defaultColumns ?? '' }}">
         {%- set row_class = row_class|default(row_attr.class|default('mb-3')) -%}
@@ -115,6 +116,20 @@
     {% endif %}
 {% endblock form_row %}
 
+{% block repeated_row %}
+    {% set field = form.vars.ea_vars.field|default(null) %}
+
+    <div class="{{ field.columns ?? field.defaultColumns ?? '' }}">
+        {{- block('form_rows') -}}
+    </div>
+
+    {# if a field doesn't define its columns explicitly, insert a fill element to make the field take the entire row space #}
+    {% if field.columns|default(null) is null %}
+        <div class="flex-fill"></div>
+    {% endif %}
+
+{% endblock repeated_row %}
+
 {% block choice_widget_collapsed %}
     {% if 'ea-autocomplete' == attr['data-ea-widget']|default(false) %}
         {% set attr = attr|merge({
@@ -144,7 +159,7 @@
 
     {% set row_attr = row_attr|merge({
         'data-ea-collection-field': 'true',
-        'data-entry-is-complex': form.vars.ea_vars.field and form.vars.ea_vars.field.customOptions.get('entryIsComplex') ? 'true' : 'false',
+        'data-entry-is-complex': (form.vars.ea_vars.field.customOptions.get('entryIsComplex') ?? false) ? 'true' : 'false',
         'data-allow-add': allow_add ? 'true' : 'false',
         'data-allow-delete': allow_delete ? 'true' : 'false',
         'data-num-items': form.children is empty ? 0 : maxKey + 1,
@@ -315,7 +330,7 @@
 {% block vich_file_widget %}
     <div class="ea-vich-file">
         {% if download_uri|default('') is not empty %}
-            <a class="ea-vich-file-name" href="{{ asset_helper is same as(true) ? asset(download_uri) : download_uri }}">
+            <a class="ea-vich-file-name" href="{{ asset_helper is same as(true) ? asset(download_uri) : download_uri }}" {% if download_uri|split('/')|last|ea_force_download %}download rel="noopener"{% endif %}>
                 <twig:ea:Icon name="internal:file-lines" />
                 {%- if download_label|default(false) -%}
                     {{ translation_domain is same as(false) ? download_label : download_label|trans({}, translation_domain) }}
@@ -420,11 +435,11 @@
 {% block ea_code_editor_widget %}
     {{ form_widget(form, {attr: attr|merge({
         'data-ea-code-editor-field': 'true',
-        'data-language': form.vars.ea_vars.field.customOptions.get('language'),
-        'data-tab-size': form.vars.ea_vars.field.customOptions.get('tabSize'),
-        'data-indent-with-tabs': form.vars.ea_vars.field.customOptions.get('indentWithTabs') ? 'true' : 'false',
-        'data-show-line-numbers': form.vars.ea_vars.field.customOptions.get('showLineNumbers') ? 'true' : 'false',
-        'data-number-of-rows': form.vars.ea_vars.field.customOptions.get('numOfRows'),
+        'data-language': form.vars.ea_vars.field.customOptions.get('language')|default('markdown'),
+        'data-tab-size': form.vars.ea_vars.field.customOptions.get('tabSize')|default(4),
+        'data-indent-with-tabs': (form.vars.ea_vars.field.customOptions.get('indentWithTabs') ?? false) ? 'true' : 'false',
+        'data-show-line-numbers': (form.vars.ea_vars.field.customOptions.get('showLineNumbers') ?? true) ? 'true' : 'false',
+        'data-number-of-rows': form.vars.ea_vars.field.customOptions.get('numOfRows')|default(null),
     })}) }}
 {% endblock ea_code_editor_widget %}
 
@@ -437,7 +452,7 @@
     })}) }}
 
     <div class="ea-text-editor-wrapper {{ row_attr.class|default('') ~ (not valid ? ' has-error') }}">
-        <trix-editor input="{{ id }}" class="trix-content"></trix-editor>
+        <trix-editor input="{{ id }}" class="trix-content" {% if disabled %}disabled{% endif %}></trix-editor>
     </div>
 {% endblock ea_text_editor_widget %}
 
@@ -516,18 +531,14 @@
                    aria-expanded="{{ is_collapsed ? 'false' : 'true' }}" aria-controls="content-{{ form.vars.name }}">
                     {{ ea_form_ealabel(form) }}
                     {%- if fieldset_error_count > 0 -%}
-                        <span class="badge badge-danger" title="{{ 'form.tab.error_badge_title'|trans({'%count%': fieldset_error_count}, 'EasyAdminBundle') }}">
-                            {{- fieldset_error_count -}}
-                        </span>
+                        <twig:ea:Badge variant="danger" title="{{ 'form.tab.error_badge_title'|trans({'%count%': fieldset_error_count}, 'EasyAdminBundle') }}">{{ fieldset_error_count }}</twig:ea:Badge>
                     {%- endif -%}
                 </a>
             {% else %}
                 <span class="not-collapsible form-fieldset-title-content">
                     {{ ea_form_ealabel(form) }}
                     {%- if fieldset_error_count > 0 -%}
-                        <span class="badge badge-danger" title="{{ 'form.tab.error_badge_title'|trans({'%count%': fieldset_error_count}, 'EasyAdminBundle') }}">
-                            {{- fieldset_error_count -}}
-                        </span>
+                        <twig:ea:Badge variant="danger" title="{{ 'form.tab.error_badge_title'|trans({'%count%': fieldset_error_count}, 'EasyAdminBundle') }}">{{ fieldset_error_count }}</twig:ea:Badge>
                     {%- endif -%}
                 </span>
             {% endif %}
@@ -550,7 +561,7 @@
     {% set fieldset_has_errors = form.vars.ea_vars.field.getCustomOption(fieldset_error_count_option_name)|default(0) > 0 %}
     {% set is_collapsed = form.vars.ea_vars.field.getCustomOption(collapsed_option_name)|default(false) %}
 
-    <div class="form-fieldset {{ not fieldset_has_header ? 'form-fieldset-no-header' }} {{ fieldset_has_errors ? 'has-fieldset-error' }} {{ ea_css_class }}">
+    <div class="form-fieldset {{ not fieldset_has_header ? 'form-fieldset-no-header' }} {{ fieldset_has_errors ? 'has-fieldset-error' }} {{ ea_css_class }} {{ form.vars.attr.class|default('') }}" {% for key, value in form.vars.attr %}{% if key != 'class' %}{{ key }}="{{ value|e('html') }}" {% endif %}{% endfor %}>
         <fieldset>
             {% if fieldset_has_header %}
                 {{ form_label(form) }}
@@ -585,9 +596,7 @@
 
                         {% set tab_error_count = tab.getCustomOption(tab_error_count_option_name) %}
                         {%- if tab_error_count > 0 -%}
-                            <span class="badge badge-danger" title="{{ 'form.tab.error_badge_title'|trans({'%count%': tab_error_count}, 'EasyAdminBundle') }}">
-                                {{- tab_error_count -}}
-                            </span>
+                            <twig:ea:Badge variant="danger" title="{{ 'form.tab.error_badge_title'|trans({'%count%': tab_error_count}, 'EasyAdminBundle') }}">{{ tab_error_count }}</twig:ea:Badge>
                         {%- endif -%}
                     </a>
                 </li>
@@ -672,134 +681,93 @@
 {% endblock ea_datetime_filter_widget %}
 
 {% block ea_fileupload_widget %}
-    <div class="ea-fileupload">
-        <div class="input-group">
-            {% set placeholder = t('action.choose_file', {}, 'EasyAdminBundle') %}
-            {% set title = '' %}
-            {% set filesLabel = 'files'|trans({}, 'EasyAdminBundle') %}
-            {% if currentFiles %}
-                {% if multiple %}
-                    {% set placeholder = currentFiles|length ~ ' ' ~ filesLabel %}
-                {% else %}
-                    {% set placeholder = (currentFiles|first).filename %}
-                    {% set title = (currentFiles|first).mTime|date %}
-                {% endif %}
-            {% endif %}
-            <div class="custom-file">
-                {{ form_widget(form.file, {attr: form.file.vars.attr|merge({placeholder: placeholder, title: title, 'data-files-label': filesLabel, class: 'd-none'})}) }}
-                {# don't pass 'placeholder' as the 2nd argument of form_label(); Twig calls testEmpty() on it internally, which triggers the TranslatableMessage::__toString() deprecation #}
-                {{ form_label(form.file, null, {label: placeholder, label_attr: {class: 'custom-file-label'}}) }}
-            </div>
-            <div class="input-group-text">
-                {%- if currentFiles -%}
-                    {% if multiple %}
-                        {{ (currentFiles|reduce((carry, file) => carry + file.size))|ea_filesize }}
-                    {% else %}
-                        {{ (currentFiles|first).size|ea_filesize }}
-                    {% endif %}
-                {%- endif -%}
-                {% if allow_delete %}
-                    <label class="btn ea-fileupload-delete-btn {{ currentFiles is empty ? 'd-none' }}" for="{{ form.delete.vars.id }}">
-                        <twig:ea:Icon name="internal:delete" />
-                    </label>
-                {% endif %}
-                <label class="btn" for="{{ form.file.vars.id }}">
-                    <twig:ea:Icon name="internal:folder-open" />
-                </label>
-            </div>
-        </div>
-        {% if multiple and currentFiles %}
-            <div class="form-control fileupload-list">
-                <table class="fileupload-table">
-                    <tbody>
-                    {% for file in currentFiles %}
-                        <tr>
-                            <td>
-                                {% if download_path %}<a href="{{ asset(download_path ~ file.filename) }}">{% endif %}
-                                    <span title="{{ file.mTime|date }}">
-                                        <twig:ea:Icon name="internal:file-lines" /> {{ file.filename }}
-                                    </span>
-                                {% if download_path %}</a>{% endif %}
-                            </td>
-                            <td class="text-right file-size">{{ file.size|ea_filesize }}</td>
-                        </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% endif %}
-        {% if allow_delete %}
-            <div class="d-none">{{ form_widget(form.delete, {label: false}) }}</div>
-        {% endif %}
-    </div>
-    {{ form_errors(form.file) }}
-{% endblock %}
+    <div class="ea-fileupload"
+        data-ea-fileupload-field
+        {% if allow_view %}data-allow-view{% endif %}
+        {% if allow_download %}data-allow-download{% endif %}
+        {% if allow_delete %}data-allow-delete{% endif %}
+        {% if multiple %}data-multiple{% endif %}
+        data-icon-generic="{{ component('ea:Icon', {name: 'filetypes:generic', class: 'ea-fileupload-card-icon'})|e('html_attr') }}"
+        data-icon-view="{{ component('ea:Icon', {name: 'internal:detail'})|e('html_attr') }}"
+        data-icon-download="{{ component('ea:Icon', {name: 'internal:download'})|e('html_attr') }}"
+        data-icon-delete="{{ component('ea:Icon', {name: 'internal:xmark'})|e('html_attr') }}"
+    >
+        {{ form_widget(form.file, {attr: form.file.vars.attr|merge({class: 'd-none', 'data-ea-fileupload-input': ''})}) }}
 
-{% block TODO_ea_fileupload_widget %}
-    {% set placeholder = '' %}
-    {% set title = '' %}
-    {% set filesLabel = 'files'|trans({}, 'EasyAdminBundle') %}
-    {% if currentFiles %}
-        {% if multiple %}
-            {% set placeholder = currentFiles|length ~ ' ' ~ filesLabel %}
-        {% else %}
-            {% set placeholder = (currentFiles|first).filename %}
-            {% set title = (currentFiles|first).mTime|date %}
-        {% endif %}
-    {% endif %}
-
-    <div class="ea-fileupload">
-        <div class="input-group">
-            {{ form_widget(form.file, {attr: form.file.vars.attr|merge({placeholder: placeholder, title: title, 'data-files-label': filesLabel, class: 'form-control'})}) }}
-
-            {% if currentFiles %}
-                <span class="input-group-text">
-                    {% if multiple %}
-                        {{ (currentFiles|reduce((carry, file) => carry + file.size))|ea_filesize }}
-                    {% else %}
-                        {{ (currentFiles|first).size|ea_filesize }}
-                    {% endif %}
+        <div class="ea-fileupload-toolbar">
+            {% set showAddButton = multiple or currentFiles is empty %}
+            <button type="button" class="btn btn-secondary btn-sm ea-fileupload-add-btn {{ not showAddButton ? 'd-none' }}" data-ea-fileupload-add>
+                <twig:ea:Icon name="internal:plus" class="btn-icon" />
+                <span class="btn-label">
+                    {{ multiple
+                        ? 'file_upload.add_files'|trans({}, 'EasyAdminBundle')
+                        : 'file_upload.add_file'|trans({}, 'EasyAdminBundle')
+                    }}
                 </span>
-            {% endif %}
+            </button>
 
-            {% if currentFiles and allow_delete %}
-                <button class="btn ea-fileupload-delete-btn">
-                    <twig:ea:Icon name="internal:delete" />
-                </button>
-            {% endif %}
-
-            {% if currentFiles %}
-                <button class="btn">
-                    <twig:ea:Icon name="internal:folder-open" />
+            {% if multiple and allow_delete %}
+                <button type="button" class="btn btn-sm ea-fileupload-clear-all-btn {{ currentFiles is empty ? 'd-none' }}" data-ea-fileupload-clear-all>
+                    {{ 'file_upload.clear_all'|trans({}, 'EasyAdminBundle') }}
                 </button>
             {% endif %}
         </div>
 
-        {% if multiple and currentFiles %}
-            <div class="form-control fileupload-list">
-                <table class="fileupload-table">
-                    <tbody>
-                    {% for file in currentFiles %}
-                        <tr>
-                            <td>
-                                {% if download_path %}<a href="{{ asset(download_path ~ file.filename) }}">{% endif %}
-                                    <span title="{{ file.mTime|date }}">
-                                        <twig:ea:Icon name="internal:file-lines" /> {{ file.filename }}
-                                    </span>
-                                    {% if download_path %}</a>{% endif %}
-                            </td>
-                            <td class="text-right file-size">{{ file.size|ea_filesize }}</td>
-                        </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% endif %}
+        <div class="ea-fileupload-cards" data-ea-fileupload-cards>
+            {% for i, file in currentFiles %}
+                {% set fileName = file.filename %}
+                {% set fileSize = file.size ? file.size|ea_filesize : '' %}
+                {% set filetypeIcon = fileName|ea_filetype_icon %}
+                {% set isImage = (filetypeIcon == 'image')
+                    or (filetypeIcon == 'vector' and (fileName|lower ends with '.svg' or fileName|lower ends with '.svgz')) %}
+                {% set isVectorImage = filetypeIcon == 'vector' and (fileName|lower ends with '.svg' or fileName|lower ends with '.svgz') %}
+                {% set fileUrl = currentFileUrls[i]|default(null) %}
+                {% if fileUrl is null and download_path %}
+                    {% set fileUrl = asset(download_path ~ currentFileNames[i]) %}
+                {% endif %}
+
+                <div class="ea-fileupload-card" data-ea-fileupload-card data-filename="{{ currentFileNames[i] }}">
+                    <div class="ea-fileupload-card-preview">
+                        {% if isImage and fileUrl %}
+                            <img src="{{ fileUrl }}" alt="{{ fileName }}" class="ea-fileupload-card-thumbnail" />
+                        {% else %}
+                            <twig:ea:Icon name="filetypes:{{ filetypeIcon }}" class="ea-fileupload-card-icon" />
+                        {% endif %}
+                    </div>
+
+                    <div class="ea-fileupload-card-info">
+                        <span class="ea-fileupload-card-name">{{ fileName }}</span>
+                        {% if fileSize %}
+                            <span class="ea-fileupload-card-size">{{ fileSize }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="ea-fileupload-card-actions">
+                        {% if allow_view and fileUrl and (risky_inline_render|default(false) or not (fileName|ea_force_download)) %}
+                            <a href="{{ fileUrl }}" target="_blank" rel="noopener" class="ea-fileupload-action-btn ea-fileupload-action-view" title="{{ 'action.detail'|trans({}, 'EasyAdminBundle') }}">
+                                <twig:ea:Icon name="internal:detail" />
+                            </a>
+                        {% endif %}
+                        {% if allow_download and fileUrl %}
+                            <a href="{{ fileUrl }}" download="{{ fileName }}" class="ea-fileupload-action-btn ea-fileupload-action-download" title="{{ 'action.download'|trans({}, 'EasyAdminBundle') }}">
+                                <twig:ea:Icon name="internal:download" />
+                            </a>
+                        {% endif %}
+                        {% if allow_delete %}
+                            <button type="button" class="ea-fileupload-action-btn ea-fileupload-action-delete" data-ea-fileupload-delete-card>
+                                <twig:ea:Icon name="internal:xmark" />
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
         {% if allow_delete %}
             <div class="d-none">{{ form_widget(form.delete, {label: false}) }}</div>
         {% endif %}
+        <div class="d-none">{{ form_widget(form.deleted_files) }}</div>
     </div>
-
     {{ form_errors(form.file) }}
 {% endblock %}
 

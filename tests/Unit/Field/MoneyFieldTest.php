@@ -4,6 +4,7 @@ namespace EasyCorp\Bundle\EasyAdminBundle\Tests\Unit\Field;
 
 use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\MoneyConfigurator;
+use EasyCorp\Bundle\EasyAdminBundle\Field\CurrencyField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\MoneyField;
 use EasyCorp\Bundle\EasyAdminBundle\Form\Type\EaMoneyType;
 use EasyCorp\Bundle\EasyAdminBundle\Intl\IntlFormatter;
@@ -49,6 +50,16 @@ class MoneyFieldTest extends AbstractFieldTest
 
         $field = MoneyField::new('foo')->setValue(100)->setCurrency('THIS_DOES_NOT_EXIST');
         $this->configure($field);
+    }
+
+    public function testFieldWithNoCurrency(): void
+    {
+        $field = MoneyField::new('foo')->setValue(100)->setCurrency(CurrencyField::CURRENCY_NONE);
+        $fieldDto = $this->configure($field);
+
+        self::assertSame('XXX', $fieldDto->getCustomOption(MoneyField::OPTION_CURRENCY));
+        self::assertSame('XXX', $fieldDto->getFormTypeOption('currency'));
+        self::assertStringContainsString('¤', $fieldDto->getFormattedValue());
     }
 
     public function testFieldWithHardcodedCurrency(): void

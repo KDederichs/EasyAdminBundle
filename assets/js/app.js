@@ -4,7 +4,7 @@ require('../css/app.css');
 import bootstrap from 'bootstrap/dist/js/bootstrap.bundle';
 import Mark from 'mark.js/src/vanilla';
 import Autocomplete from './autocomplete';
-import { toggleVisibilityClasses } from './helpers';
+import { sanitizeUrl, toggleVisibilityClasses } from './helpers';
 
 // Provide Bootstrap variable globally to allow custom backend pages to use it
 window.bootstrap = bootstrap;
@@ -26,6 +26,7 @@ class App {
         this.#createLayoutResizeControls();
         this.#createNavigationToggler();
         this.#createSearchHighlight();
+        this.#createSearchInputAutoSizing();
         this.#createFilters();
         this.#createAutoCompleteFields();
         this.#createBatchActions();
@@ -190,6 +191,19 @@ class App {
         highlighter.mark(searchQueryTerms, { separateWordSearch: false });
     }
 
+    #createSearchInputAutoSizing() {
+        const searchElement = document.querySelector('.content-search-label input[type="search"]');
+        if (null === searchElement) {
+            return;
+        }
+
+        // keep the parent label's data-value in sync with the typed text, so the
+        // ::after pseudo-element used to auto-size the search input grows while typing
+        searchElement.addEventListener('input', () => {
+            searchElement.parentNode.dataset.value = searchElement.value;
+        });
+    }
+
     #createFilters() {
         const filterButton = document.querySelector('.datagrid-filters .action-filters-button');
         if (null === filterButton) {
@@ -198,8 +212,15 @@ class App {
 
         const filterModal = document.querySelector(filterButton.getAttribute('data-bs-target'));
 
+        // the filter URL is fetched and its response is injected into the page (see below),
+        // so it must be same-origin to prevent loading attacker-controlled remote HTML
+        const filtersUrl = sanitizeUrl(filterButton.getAttribute('data-href'), true);
+        if (null === filtersUrl) {
+            return;
+        }
+
         // this is needed to avoid errors when connection is slow
-        filterButton.setAttribute('href', filterButton.getAttribute('data-href'));
+        filterButton.setAttribute('href', filtersUrl);
         filterButton.removeAttribute('data-href');
         filterButton.classList.remove('disabled');
 
@@ -476,10 +497,12 @@ class App {
     }
 
     #createDefaultRowAction() {
-        const clickableRows = document.querySelectorAll('tr.ea-clickable-row[data-default-action-url]');
+        const clickableRows = document.querySelectorAll('tr[data-default-action-url]');
         if (0 === clickableRows.length) {
             return;
         }
+
+        clickableRows.forEach((row) => row.classList.add('ea-clickable-row'));
 
         const clickTrigger = clickableRows[0].closest('table')?.getAttribute('data-default-action-trigger') || 'single';
 
@@ -494,6 +517,7 @@ class App {
             '.actions',
             '[data-bs-toggle]',
             '.btn',
+            '.modal',
         ];
 
         const isInteractiveElement = (element) => {
@@ -532,10 +556,30 @@ class App {
             }
         };
 
+        // when the single-click trigger is active, a drag-to-select gesture ends with a `click`
+        // event at the release point. Skip navigation in that case so users can highlight and
+        // copy text from a cell without being navigated away.
+        const userIsSelectingTextInRow = (row) => {
+            if ('double' === clickTrigger) {
+                return false;
+            }
+
+            const selection = window.getSelection();
+            if (null === selection || 0 === selection.toString().length || 0 === selection.rangeCount) {
+                return false;
+            }
+
+            return row.contains(selection.getRangeAt(0).commonAncestorContainer);
+        };
+
         clickableRows.forEach((row) => {
             // handle mouse clicks
             row.addEventListener(clickTrigger === 'double' ? 'dblclick' : 'click', (event) => {
                 if (isInteractiveElement(event.target)) {
+                    return;
+                }
+
+                if (userIsSelectingTextInRow(row)) {
                     return;
                 }
 
@@ -642,7 +686,10 @@ class App {
                     return;
                 }
                 event.preventDefault();
-                window.location = element.getAttribute('data-ea-action-url');
+                const actionUrl = sanitizeUrl(element.getAttribute('data-ea-action-url'));
+                if (null !== actionUrl) {
+                    window.location = actionUrl;
+                }
             });
         });
     }

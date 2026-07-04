@@ -15,7 +15,22 @@
             <p>No information available because this route is not related to EasyAdmin.</p>
         </div>
     {% else %}
-        {{ include('@WebProfiler/Profiler/table.html.twig', {data: collector.data}, with_context: false) }}
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col" class="key">Key</th>
+                    <th scope="col">Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for key, value in collector.data %}
+                    <tr>
+                        <th scope="row">{{ key }}</th>
+                        <td>{{ profiler_dump(value) }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     {% endif %}
 
     <h3>Additional Resources</h3>

@@ -595,7 +595,7 @@
 }
 .ts-wrapper .ts-control {
     block-size: unset;
-    min-block-size: 30px;
+    min-block-size: 28px;
     padding: 3px 28px 4px 7px;
 }
 .ts-wrapper.input-active {

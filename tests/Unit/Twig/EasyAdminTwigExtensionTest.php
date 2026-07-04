@@ -66,23 +66,73 @@ class EasyAdminTwigExtensionTest extends KernelTestCase
         $this->assertSame($expected, $result);
     }
 
+    /**
+     * @dataProvider provideValuesForForceFileDownload
+     */
+    public function testForceFileDownload(string $filename, bool $expected): void
+    {
+        $reflectedClass = new \ReflectionClass(EasyAdminTwigExtension::class);
+        $twigExtensionInstance = $reflectedClass->newInstanceWithoutConstructor();
+
+        $this->assertSame($expected, $twigExtensionInstance->forceFileDownload($filename));
+    }
+
+    public static function provideValuesForForceFileDownload(): iterable
+    {
+        // files the browser renders inline and can execute scripts from
+        yield ['document.html', true];
+        yield ['document.htm', true];
+        yield ['document.xhtml', true];
+        yield ['document.shtml', true];
+        yield ['document.mhtml', true];
+        yield ['image.svg', true];
+        yield ['image.svgz', true];
+        yield ['data.xml', true];
+        yield ['transform.xsl', true];
+        yield ['transform.xslt', true];
+
+        // the check is case-insensitive
+        yield ['DOCUMENT.HTML', true];
+        yield ['IMAGE.SVG', true];
+
+        // the check uses the (last) extension, regardless of the path
+        yield ['uploads/files/payload.html', true];
+        yield ['uploads/images/avatar.png', false];
+        yield ['archive.tar.svg', true];
+        yield ['archive.svg.zip', false];
+
+        // safe types keep opening inline
+        yield ['document.pdf', false];
+        yield ['photo.jpg', false];
+        yield ['photo.jpeg', false];
+        yield ['photo.png', false];
+        yield ['photo.gif', false];
+        yield ['photo.webp', false];
+        yield ['report.docx', false];
+        yield ['notes.txt', false];
+
+        // files without an extension are not forced to download
+        yield ['README', false];
+        yield ['', false];
+    }
+
     public static function provideValuesForFileSize(): iterable
     {
-        yield [0, '0B'];
-        yield [1, '1B'];
-        yield [1023, '1023B'];
-        yield [1024, '1K'];
-        yield [999_900, '976K'];
-        yield [1024 ** 2 - 100, '1023K'];
-        yield [1024 ** 2, '1M'];
-        yield [1024 ** 2 + 100, '1M'];
-        yield [1024 ** 3 - 1, '1023M'];
-        yield [1024 ** 3, '1G'];
-        yield [1024 ** 3 + 1, '1G'];
-        yield [1024 ** 4, '1T'];
-        yield [1024 ** 5, '1P'];
-        yield [1024 ** 6, '1E'];
-        yield [\PHP_INT_MAX, '8E'];
+        yield [0, '0 B'];
+        yield [1, '1 B'];
+        yield [1023, '1023 B'];
+        yield [1024, '1 KB'];
+        yield [999_900, '976.5 KB'];
+        yield [1024 ** 2 - 100, '1023.9 KB'];
+        yield [1024 ** 2, '1 MB'];
+        yield [1024 ** 2 + 100, '1 MB'];
+        yield [1024 ** 3 - 1, '1024 MB'];
+        yield [1024 ** 3, '1 GB'];
+        yield [1024 ** 3 + 1, '1 GB'];
+        yield [1024 ** 4, '1 TB'];
+        yield [1024 ** 5, '1 PB'];
+        yield [1024 ** 6, '1 EB'];
+        yield [\PHP_INT_MAX, '8 EB'];
     }
 
     public static function provideValuesForRepresentAsString(): iterable

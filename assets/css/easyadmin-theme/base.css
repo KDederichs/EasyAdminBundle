@@ -707,24 +707,28 @@ a.user-menu-wrapper .user-details:hover {
 
 .dropdown-menu {
     --dropdown-padding: 4px;
+    --dropdown-radius: var(--border-radius-lg); /* 8px */
+    --dropdown-item-radius: var(--border-radius-lg); /* 8px */
 
     background-color: var(--dropdown-bg);
     border-color: var(--dropdown-border-color);
+    border-radius: var(--dropdown-radius);
     box-shadow: var(--shadow-xl);
     color: var(--dropdown-color);
+    min-inline-size: 8rem;
     max-inline-size: 240px;
-    padding: 5px;
+    padding: var(--dropdown-padding);
 }
 .dropdown-menu.dropdown-has-submenus {
     padding-inline-start: 25px;
 }
 .dropdown-menu li {
-    border-radius: var(--border-radius);
+    border-radius: var(--dropdown-item-radius);
 }
 .dropdown-menu a,
 .dropdown-menu a:hover,
 .dropdown-menu a:active {
-    border-radius: var(--border-radius);
+    border-radius: var(--dropdown-item-radius);
     color: var(--dropdown-link-color);
 }
 .dropdown-menu a:hover {
@@ -733,25 +737,41 @@ a.user-menu-wrapper .user-details:hover {
 .dropdown-menu i,
 .dropdown-menu .icon {
     color: var(--dropdown-icon-color);
-    margin: 0 8px 0 0;
-    font-size: 15px;
+    margin: 0;
+    /* 14px (not 16px): FontAwesome's filled glyphs read heavier than icon sets with thin SVG strokes,
+       so a slightly smaller size matches the visual weight. */
+    font-size: 14px;
 }
 .dropdown-menu .icon i {
     margin: 0;
+    line-height: 1;
 }
 .dropdown-menu .icon {
     display: inline-flex;
+    align-items: center;
     justify-content: center;
+    /* fixed-width icon column following FontAwesome's .fa-fw (1.25em): every FA glyph is
+       designed to fit within 1.25em, so icons render full-size, stay centered, never get
+       clipped, and labels line up. SVG icons are capped at 1em and centered in the same
+       column. */
+    inline-size: 1.25em;
+    block-size: 16px;
+    flex-shrink: 0;
+    /* reset the item's 20px line-height so glyphs aren't inflated vertically */
+    line-height: 1;
 }
 
 .dropdown-menu .dropdown-item,
 .dropdown-menu .dropdown-header {
     align-items: center;
     display: flex;
-    block-size: 28px;
+    gap: 6px;
+    min-block-size: 28px;
     white-space: nowrap;
     overflow: hidden;
-    padding: 0 12px 0 6px;
+    padding: 4px 6px;
+    font-size: var(--font-size-base);
+    line-height: 1.25rem; /* 28px */
     text-overflow: ellipsis;
 }
 .dropdown-menu .dropdown-divider {

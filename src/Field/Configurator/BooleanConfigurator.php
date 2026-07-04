@@ -54,7 +54,11 @@ final readonly class BooleanConfigurator implements FieldConfiguratorInterface
                 $field->setFormTypeOptionIfNotSet('disabled', true);
             }
 
-            $field->setFormTypeOptionIfNotSet('label_attr.class', 'checkbox-switch');
+            $labelClass = 'checkbox-switch';
+            if (null !== ($switchVariant = $field->getCustomOption(BooleanField::OPTION_SWITCH_VARIANT))) {
+                $labelClass .= ' checkbox-switch-'.$switchVariant;
+            }
+            $field->setFormTypeOptionIfNotSet('label_attr.class', $labelClass);
             $field->setCssClass($field->getCssClass().' has-switch');
         }
     }

@@ -100,13 +100,6 @@ final class AdminContext implements AdminContextInterface
         return $this->dashboardContext->getDashboardDto()->getAbsoluteUrls();
     }
 
-    public function usePrettyUrls(): bool
-    {
-        @trigger_deprecation('easycorp/easyadmin-bundle', '5.0.0', 'The "%s()" method is deprecated and will be removed in EasyAdmin 5.1.0. This method always returns true.', __METHOD__);
-
-        return true;
-    }
-
     public function getDashboardTitle(): string
     {
         return $this->dashboardContext->getDashboardDto()->getTitle();

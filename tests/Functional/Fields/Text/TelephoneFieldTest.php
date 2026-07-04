@@ -33,7 +33,53 @@ class TelephoneFieldTest extends AbstractFieldFunctionalTest
         $entityRow = $crawler->filter(sprintf('tr[data-id="%d"]', $entity->getId()));
         $telLink = $entityRow->filter('td[data-column="telephoneField"] a[href^="tel:"]');
         static::assertCount(1, $telLink, 'Telephone field should render as tel link');
-        static::assertSame('tel:+1-555-987-6543', $telLink->attr('href'));
+        static::assertSame('tel:%2B1-555-987-6543', $telLink->attr('href'));
+    }
+
+    public function testTelephoneFieldEncodesSchemeInjectionPayload(): void
+    {
+        $payload = '+1-555;phone-context=evil';
+        $entity = $this->createFieldTestEntity([
+            'telephoneField' => $payload,
+        ]);
+
+        $crawler = $this->client->request('GET', $this->generateIndexUrlSortedByIdDesc());
+
+        $entityRow = $crawler->filter(sprintf('tr[data-id="%d"]', $entity->getId()));
+        $telLink = $entityRow->filter('td[data-column="telephoneField"] a[href^="tel:"]');
+        static::assertCount(1, $telLink, 'Telephone field should render as tel link');
+
+        $href = $telLink->attr('href');
+        static::assertStringNotContainsString(';', $href, 'Raw ";" must not leak into href');
+        static::assertSame('tel:'.rawurlencode($payload), $href);
+    }
+
+    /**
+     * @dataProvider validE164NumbersProvider
+     */
+    public function testTelephoneFieldRendersValidE164Numbers(string $phoneNumber): void
+    {
+        $entity = $this->createFieldTestEntity([
+            'telephoneField' => $phoneNumber,
+        ]);
+
+        $crawler = $this->client->request('GET', $this->generateIndexUrlSortedByIdDesc());
+
+        $entityRow = $crawler->filter(sprintf('tr[data-id="%d"]', $entity->getId()));
+        $telLink = $entityRow->filter('td[data-column="telephoneField"] a[href^="tel:"]');
+        static::assertCount(1, $telLink, sprintf('Telephone field should render as tel link for "%s"', $phoneNumber));
+        static::assertSame('tel:'.rawurlencode($phoneNumber), $telLink->attr('href'));
+        static::assertStringContainsString($phoneNumber, $telLink->text(), 'Visible label should preserve the original number');
+    }
+
+    public static function validE164NumbersProvider(): iterable
+    {
+        // E.164 example numbers sourced from Google libphonenumber metadata
+        yield 'US' => ['+1 201-555-0123'];
+        yield 'UK' => ['+44 121 234 5678'];
+        yield 'Germany' => ['+49 30 12345678'];
+        yield 'Japan' => ['+81 3-1234-5678'];
+        yield 'Brazil' => ['+55 11 99999-8888'];
     }
 
     public function testTelephoneFieldDisplaysOnDetail(): void

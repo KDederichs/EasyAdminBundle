@@ -13,6 +13,9 @@ final class CurrencyField implements FieldInterface
 {
     use FieldTrait;
 
+    // the ISO 4217 standard uses 'XXX' for transactions where no currency is involved: https://en.wikipedia.org/wiki/ISO_4217#Active_codes_(list_one)
+    public const CURRENCY_NONE = 'XXX';
+
     public const OPTION_SHOW_CODE = 'showCode';
     public const OPTION_SHOW_NAME = 'showName';
     public const OPTION_SHOW_SYMBOL = 'showSymbol';

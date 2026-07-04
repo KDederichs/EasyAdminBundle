@@ -73,6 +73,23 @@ final class AdminUrlGenerator implements \Stringable, AdminUrlGeneratorInterface
         return $this;
     }
 
+    /**
+     * Convenient alias of setEntityId() that reads better in templates, where "id" is
+     * more intuitive than "entityId". It works for routes using either the "{id}" or the
+     * "{entityId}" placeholder because it sets the canonical "entityId" parameter, which
+     * generateUrl() then translates to "id" when the target route uses the "{id}" alias.
+     *
+     * Note: this method is not part of AdminUrlGeneratorInterface yet (to avoid a BC break);
+     * it will be added to the interface in the next major version of EasyAdmin. Its return
+     * type is "self" (not the interface) so it can be chained in statically-analyzed code.
+     */
+    public function setId(mixed $id): self
+    {
+        $this->setEntityId($id);
+
+        return $this;
+    }
+
     public function get(string $paramName): mixed
     {
         if (false === $this->isInitialized) {
@@ -163,7 +180,6 @@ final class AdminUrlGenerator implements \Stringable, AdminUrlGeneratorInterface
             $this->unset(EA::ENTITY_ID);
         }
 
-        $dashboardRoutes = $this->adminRouteGenerator->getDashboardRoutes();
         // this happens when generating URLs from outside EasyAdmin (AdminContext is null) and
         // no Dashboard FQCN has been defined explicitly
         if (null === $this->dashboardRoute) {
@@ -211,6 +227,16 @@ final class AdminUrlGenerator implements \Stringable, AdminUrlGeneratorInterface
         $routeName = $this->adminRouteGenerator->findRouteName($dashboardControllerFqcn, $crudControllerFqcn, $actionName) ?? $this->dashboardRoute;
 
         unset($canonicalRouteParameters[EA::DASHBOARD_CONTROLLER_FQCN], $canonicalRouteParameters[EA::CRUD_CONTROLLER_FQCN], $canonicalRouteParameters[EA::CRUD_ACTION]);
+
+        // if the target route identifies the current entity with the "{id}" alias (instead of the
+        // canonical "{entityId}" placeholder), generate the URL using "id" so the value fills the
+        // route placeholder instead of leaking into the query string. An explicit "id" parameter (if
+        // any) is preserved, but the canonical "entityId" is always dropped on these routes.
+        $adminRoutes = $this->cache->getItem(CacheKey::ROUTE_NAME_TO_ATTRIBUTES)->get() ?? [];
+        if ('id' === ($adminRoutes[$routeName]['entityIdParamName'] ?? null) && \array_key_exists(EA::ENTITY_ID, $canonicalRouteParameters)) {
+            $canonicalRouteParameters['id'] ??= $canonicalRouteParameters[EA::ENTITY_ID];
+            unset($canonicalRouteParameters[EA::ENTITY_ID]);
+        }
 
         $url = $this->urlGenerator->generate($routeName, $canonicalRouteParameters, $urlType);
         $url = '' === $url ? '?' : $url;
@@ -263,7 +289,9 @@ final class AdminUrlGenerator implements \Stringable, AdminUrlGeneratorInterface
                 EA::DASHBOARD_CONTROLLER_FQCN => $adminContext?->getRequest()->attributes->get(EA::DASHBOARD_CONTROLLER_FQCN),
                 EA::CRUD_CONTROLLER_FQCN => $adminContext?->getRequest()->attributes->get(EA::CRUD_CONTROLLER_FQCN),
                 EA::CRUD_ACTION => $adminContext?->getRequest()->attributes->get(EA::CRUD_ACTION),
-                EA::ENTITY_ID => $adminContext?->getRequest()->attributes->get(EA::ENTITY_ID),
+                // read the entity ID through EntityIdReader so it's also seeded from the "{id}" alias
+                // (and from mapped placeholders), and not only from the canonical "entityId" attribute
+                EA::ENTITY_ID => null === $adminContext ? null : EntityIdReader::fromRequest($adminContext->getRequest()),
             ],
             static fn (mixed $value): bool => null !== $value
         );

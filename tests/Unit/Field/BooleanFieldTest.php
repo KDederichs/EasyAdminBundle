@@ -130,7 +130,7 @@ class BooleanFieldTest extends AbstractFieldTest
 
         $html = $this->renderFieldTemplate($fieldDto, $this->entityDto, $this->adminContext);
 
-        self::assertStringContainsString('form-switch', $html);
+        self::assertStringContainsString('ea-switch', $html);
         self::assertStringContainsString('<input type="checkbox"', $html);
         self::assertStringContainsString('checked', $html);
     }
@@ -147,7 +147,7 @@ class BooleanFieldTest extends AbstractFieldTest
         // on detail page, even with renderAsSwitch=true, it shows a badge
         self::assertStringContainsString('badge', $html);
         self::assertStringContainsString('badge-boolean-true', $html);
-        self::assertStringNotContainsString('form-switch', $html);
+        self::assertStringNotContainsString('ea-switch', $html);
     }
 
     public function testTemplateRendersBadgeWhenNotSwitch(): void
@@ -161,7 +161,7 @@ class BooleanFieldTest extends AbstractFieldTest
 
         self::assertStringContainsString('badge', $html);
         self::assertStringContainsString('badge-boolean-false', $html);
-        self::assertStringNotContainsString('form-switch', $html);
+        self::assertStringNotContainsString('ea-switch', $html);
     }
 
     public function testTemplateHidesValueWhenTrueAndOptionEnabled(): void
@@ -214,8 +214,48 @@ class BooleanFieldTest extends AbstractFieldTest
 
         $html = $this->renderFieldTemplate($fieldDto, $this->entityDto, $this->adminContext);
 
-        self::assertStringContainsString('form-switch', $html);
+        self::assertStringContainsString('ea-switch', $html);
         self::assertStringContainsString('<input type="checkbox"', $html);
         self::assertStringNotContainsString('checked', $html);
+    }
+
+    public function testColoredSwitchHelpersSetVariantAndForceSwitch(): void
+    {
+        $variants = [
+            'success' => static fn (BooleanField $field) => $field->renderAsSuccessSwitch(),
+            'warning' => static fn (BooleanField $field) => $field->renderAsWarningSwitch(),
+            'danger' => static fn (BooleanField $field) => $field->renderAsDangerSwitch(),
+        ];
+
+        foreach ($variants as $expectedVariant => $applyHelper) {
+            $field = BooleanField::new('active');
+            $applyHelper($field);
+            $fieldDto = $this->configure($field);
+
+            self::assertTrue($fieldDto->getCustomOption(BooleanField::OPTION_RENDER_AS_SWITCH));
+            self::assertSame($expectedVariant, $fieldDto->getCustomOption(BooleanField::OPTION_SWITCH_VARIANT));
+        }
+    }
+
+    public function testColoredSwitchAddsVariantLabelClass(): void
+    {
+        $field = BooleanField::new('active');
+        $field->renderAsSuccessSwitch();
+        $fieldDto = $this->configure($field);
+
+        self::assertSame('checkbox-switch checkbox-switch-success', $fieldDto->getFormTypeOption('label_attr.class'));
+    }
+
+    public function testTemplateRendersSwitchVariantClassOnIndexPage(): void
+    {
+        $field = BooleanField::new('active');
+        $field->setValue(true);
+        $field->renderAsDangerSwitch();
+        $fieldDto = $this->configure($field);
+
+        $html = $this->renderFieldTemplate($fieldDto, $this->entityDto, $this->adminContext);
+
+        self::assertStringContainsString('ea-switch', $html);
+        self::assertStringContainsString('ea-switch-danger', $html);
     }
 }

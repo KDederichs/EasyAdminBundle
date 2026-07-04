@@ -32,7 +32,7 @@
                 {% endif %}
             </a>
             <a class="dropdown-toggle dropdown-toggle-split dropdown-item border-start-0" href="#" role="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                <span class="dropdown-toggle-marker"></span>
+                <twig:ea:Icon name="internal:chevron-right" class="dropdown-submenu-chevron" />
             </a>
         </div>
     {% else %}
@@ -46,6 +46,7 @@
                 <twig:ea:Icon name="internal:blank" />
             {% endif %}
             {% if has_group_label %}<span>{{ group.label|trans }}</span>{% endif %}
+            <twig:ea:Icon name="internal:chevron-right" class="dropdown-submenu-chevron" />
         </a>
     {% endif %}
 
@@ -56,7 +57,7 @@
                 {% if subItem.type == 'divider' %}
                     <twig:ea:ActionMenu:ActionList:Divider />
                 {% elseif subItem.type == 'header' %}
-                    <twig:ea:ActionMenu:ActionList:Header label="{{ subItem.content }}" renderLabelRaw="true" />
+                    <twig:ea:ActionMenu:ActionList:Header label="{{ subItem.content|trans }}" renderLabelRaw="true" />
                 {% endif %}
             {% else %}
                 {# subItem is an ActionDto #}

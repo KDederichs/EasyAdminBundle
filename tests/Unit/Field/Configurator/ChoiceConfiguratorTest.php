@@ -12,6 +12,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Unit\Field\AbstractFieldTest;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Unit\Field\Fixtures\ChoiceField\PriorityUnitEnum;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Unit\Field\Fixtures\ChoiceField\StatusBackedEnum;
+use EasyCorp\Bundle\EasyAdminBundle\Tests\Unit\Field\Fixtures\ChoiceField\TranslatableStatusBackedEnum;
 
 class ChoiceConfiguratorTest extends AbstractFieldTest
 {
@@ -68,6 +69,20 @@ class ChoiceConfiguratorTest extends AbstractFieldTest
         $this->assertSame($this->configure($field)->getFormTypeOption('choices'), $expected);
     }
 
+    public function testTranslatableBackedEnumTypeChoices(): void
+    {
+        $field = ChoiceField::new(self::PROPERTY_NAME);
+        $field->getAsDto()->setDoctrineMetadata(['enumType' => TranslatableStatusBackedEnum::class]);
+
+        // enums implementing TranslatableInterface must be passed to the form as a plain
+        // list of cases (not an array keyed by case name) so Symfony's EnumType uses its
+        // own translatable labeling instead of the case names as labels (see issue #7242).
+        $formChoices = $this->configure($field)->getFormTypeOption('choices');
+
+        $this->assertSame(TranslatableStatusBackedEnum::cases(), $formChoices);
+        $this->assertTrue(array_is_list($formChoices));
+    }
+
     public function testUnitEnumTypeChoices(): void
     {
         $field = ChoiceField::new(self::PROPERTY_NAME);
@@ -112,5 +127,40 @@ class ChoiceConfiguratorTest extends AbstractFieldTest
         $field->setCustomOptions(['choices' => $choices]);
 
         $this->assertSame($choices, $this->configure($field)->getFormTypeOption('choices'));
+    }
+
+    public function testDefaultColumnsAreAppliedOnAutocompleteWidget(): void
+    {
+        $field = ChoiceField::new(self::PROPERTY_NAME);
+
+        $this->assertSame('col-md-6 col-xxl-5', $this->configure($field)->getDefaultColumns());
+    }
+
+    public function testDefaultColumnsAreAppliedOnNativeWidget(): void
+    {
+        $field = ChoiceField::new(self::PROPERTY_NAME)->renderAsNativeWidget();
+
+        $this->assertSame('col-md-6 col-xxl-5', $this->configure($field)->getDefaultColumns());
+    }
+
+    public function testDefaultColumnsAreAppliedOnExpandedWidget(): void
+    {
+        $field = ChoiceField::new(self::PROPERTY_NAME)->renderExpanded();
+
+        $this->assertSame('col-md-6 col-xxl-5', $this->configure($field)->getDefaultColumns());
+    }
+
+    public function testDefaultColumnsAreWiderOnMultipleNativeWidget(): void
+    {
+        $field = ChoiceField::new(self::PROPERTY_NAME)->renderAsNativeWidget()->allowMultipleChoices();
+
+        $this->assertSame('col-md-8 col-xxl-6', $this->configure($field)->getDefaultColumns());
+    }
+
+    public function testUserDefinedColumnsAreNotOverridden(): void
+    {
+        $field = ChoiceField::new(self::PROPERTY_NAME)->renderAsNativeWidget()->setColumns('col-md-4');
+
+        $this->assertSame('col-md-4', $this->configure($field)->getColumns());
     }
 }

@@ -30,7 +30,7 @@ if (class_exists(Composer\InstalledVersions::class)) {
         ];
 
         $doctrineOrmVersion = Composer\InstalledVersions::getVersion('doctrine/orm');
-        if (null !== $doctrineOrmVersion && version_compare($doctrineOrmVersion, '3.4.0', '>=')) {
+        if (null !== $doctrineOrmVersion && version_compare($doctrineOrmVersion, '3.4.0', '>=') && \PHP_VERSION_ID >= 80400) {
             $config['orm']['enable_native_lazy_objects'] = true;
         }
     }

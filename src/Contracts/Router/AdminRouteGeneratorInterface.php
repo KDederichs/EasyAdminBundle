@@ -13,8 +13,6 @@ use Symfony\Component\Routing\RouteCollection;
  * using the #[AdminDashboard], and #[AdminRoute] attributes.
  *
  * @author Javier Eguiluz <javier.eguiluz@gmail.com>
- *
- * @method bool usesPrettyUrls()
  */
 interface AdminRouteGeneratorInterface
 {

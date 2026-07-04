@@ -7,6 +7,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Contracts\Field\FieldConfiguratorInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Intl\IntlFormatterInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\FieldDto;
+use EasyCorp\Bundle\EasyAdminBundle\Field\CurrencyField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\MoneyField;
 use EasyCorp\Bundle\EasyAdminBundle\Form\Type\EaMoneyType;
 use Money\Money;
@@ -63,7 +64,7 @@ final class MoneyConfigurator implements FieldConfiguratorInterface
             $currencyCode = $value->getCurrency()->getCode();
         }
 
-        if (null !== $currencyCode && !Currencies::exists($currencyCode)) {
+        if (null !== $currencyCode && CurrencyField::CURRENCY_NONE !== $currencyCode && !Currencies::exists($currencyCode)) {
             throw new \InvalidArgumentException(sprintf('The "%s" value used as the currency of the "%s" money field is not a valid ICU currency code.', $currencyCode, $field->getProperty()));
         }
 
@@ -90,7 +91,7 @@ final class MoneyConfigurator implements FieldConfiguratorInterface
     private function configureForScalarValue(FieldDto $field, EntityDto $entityDto): void
     {
         $currencyCode = $this->getCurrency($field, $entityDto);
-        if (null !== $currencyCode && !Currencies::exists($currencyCode)) {
+        if (null !== $currencyCode && CurrencyField::CURRENCY_NONE !== $currencyCode && !Currencies::exists($currencyCode)) {
             throw new \InvalidArgumentException(sprintf('The "%s" value used as the currency of the "%s" money field is not a valid ICU currency code.', $currencyCode, $field->getProperty()));
         }
         $field->setFormTypeOption('currency', $currencyCode);

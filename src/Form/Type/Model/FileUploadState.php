@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  */
 class FileUploadState
 {
-    /** @var File[] */
+    /** @var array<File|FlysystemFile> */
     private array $currentFiles = [];
 
     /** @var UploadedFile[] */
@@ -18,12 +18,15 @@ class FileUploadState
 
     private bool $delete = false;
 
+    /** @var string[] */
+    private array $deletedFiles = [];
+
     public function __construct(private bool $allowAdd = false)
     {
     }
 
     /**
-     * @return File[]
+     * @return array<File|FlysystemFile>
      */
     public function getCurrentFiles(): array
     {
@@ -31,9 +34,9 @@ class FileUploadState
     }
 
     /**
-     * @param File|array<File>|null $currentFiles
+     * @param File|FlysystemFile|array<File|FlysystemFile>|null $currentFiles
      */
-    public function setCurrentFiles(File|array|null $currentFiles): void
+    public function setCurrentFiles(File|FlysystemFile|array|null $currentFiles): void
     {
         if (null === $currentFiles) {
             $currentFiles = [];
@@ -108,8 +111,24 @@ class FileUploadState
         $this->delete = $delete;
     }
 
+    /**
+     * @return string[]
+     */
+    public function getDeletedFiles(): array
+    {
+        return $this->deletedFiles;
+    }
+
+    /**
+     * @param string[] $deletedFiles
+     */
+    public function setDeletedFiles(array $deletedFiles): void
+    {
+        $this->deletedFiles = $deletedFiles;
+    }
+
     public function isModified(): bool
     {
-        return [] !== $this->uploadedFiles || $this->delete;
+        return [] !== $this->uploadedFiles || $this->delete || [] !== $this->deletedFiles;
     }
 }

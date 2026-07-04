@@ -23,6 +23,10 @@ interface AdminUrlGeneratorInterface
 
     public function setEntityId(mixed $entityId): self;
 
+    // This method will be added to this interface in the next major version of EasyAdmin.
+    // It's a convenient alias of setEntityId() that reads better in templates ("id" vs "entityId").
+    // public function setId(mixed $id): self;
+
     public function get(string $paramName): mixed;
 
     public function set(string $paramName, mixed $paramValue): self;

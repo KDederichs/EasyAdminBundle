@@ -2,7 +2,13 @@
 
 namespace EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\AdminRoute;
 
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Tools\SchemaTool;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Option\EA;
+use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
+use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\AdminRouteApp\Controller\DashboardController;
+use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\AdminRouteApp\Controller\MultipleRouteCrudController;
+use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\AdminRouteApp\Entity\Product;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\AdminRouteApp\Kernel;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -601,5 +607,145 @@ class AdminRouteTest extends WebTestCase
             'EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\AdminRouteApp\Controller\AdvancedOptionsDashboardController',
             $defaults['dashboardControllerFqcn']
         );
+    }
+
+    public function testEntityIdAliasRoutesAreGenerated(): void
+    {
+        $client = static::createClient();
+        $router = $client->getContainer()->get('router');
+
+        // custom actions can use the "{id}" placeholder (alias of "{entityId}")
+        $safeDeleteRoute = $router->getRouteCollection()->get('admin_multiple_route_safe_delete_id');
+        $this->assertNotNull($safeDeleteRoute, 'Route for the "{id}" custom action should exist');
+        $this->assertSame('/admin/multiple-route/safe-delete-id/{id}', $safeDeleteRoute->getPath());
+        $this->assertSame(['POST'], $safeDeleteRoute->getMethods());
+
+        $detailByIdRoute = $router->getRouteCollection()->get('admin_multiple_route_detail_by_id');
+        $this->assertNotNull($detailByIdRoute, 'Route for the "{id}" detail custom action should exist');
+        $this->assertSame('/admin/multiple-route/detail-by-id/{id}', $detailByIdRoute->getPath());
+
+        // a built-in 'detail' action can also be overridden with the "{id}" placeholder; this used to
+        // throw a RuntimeException because only the literal "{entityId}" placeholder was accepted
+        $idDetailRoute = $router->getRouteCollection()->get('admin_id_detail_detail');
+        $this->assertNotNull($idDetailRoute, 'Built-in detail action overridden with "{id}" should generate a route');
+        $this->assertSame('/admin/id-detail/{id}', $idDetailRoute->getPath());
+
+        // the "{id}" alias is also accepted in the 'routes' option of the #[AdminDashboard] attribute
+        // (see IdAliasDashboardController); this used to throw a RuntimeException too
+        $dashboardDetailRoute = $router->getRouteCollection()->get('id_alias_admin_multiple_route_detail');
+        $this->assertNotNull($dashboardDetailRoute, 'Dashboard-level detail route customized with "{id}" should exist');
+        $this->assertSame('/id-alias-admin/multiple-route/{id}', $dashboardDetailRoute->getPath());
+
+        $dashboardEditRoute = $router->getRouteCollection()->get('id_alias_admin_multiple_route_edit');
+        $this->assertNotNull($dashboardEditRoute, 'Dashboard-level edit route customized with "{id}" should exist');
+        $this->assertSame('/id-alias-admin/multiple-route/{id}/edit', $dashboardEditRoute->getPath());
+
+        // the existing "{entityId}" routes keep working unchanged (BC)
+        $action3Route = $router->getRouteCollection()->get('admin_multiple_route_action3');
+        $this->assertNotNull($action3Route);
+        $this->assertSame('/admin/multiple-route/action3/{entityId}', $action3Route->getPath());
+    }
+
+    public function testEntityIdAliasUrlGeneration(): void
+    {
+        $client = static::createClient();
+        // make sure the admin routes (and their cached metadata) are loaded before generating URLs
+        $client->getContainer()->get('router')->getRouteCollection();
+
+        /** @var AdminUrlGenerator $urlGenerator */
+        $urlGenerator = static::getContainer()->get(AdminUrlGenerator::class);
+
+        // for an "{id}" route, the entity ID set via setEntityId() fills the "{id}" placeholder
+        // instead of leaking into the query string as "?entityId=..."
+        $url = $urlGenerator
+            ->setDashboard(DashboardController::class)
+            ->setController(MultipleRouteCrudController::class)
+            ->setAction('safeDeleteById')
+            ->setEntityId(123)
+            ->generateUrl();
+        $this->assertStringEndsWith('/admin/multiple-route/safe-delete-id/123', $url);
+        $this->assertStringNotContainsString('entityId', $url);
+
+        // the new setId() alias produces the same URL on an "{id}" route... (setId() is called first
+        // in the chain because, unlike the other setters, it's defined only on the concrete class)
+        $url = $urlGenerator
+            ->setId(456)
+            ->setDashboard(DashboardController::class)
+            ->setController(MultipleRouteCrudController::class)
+            ->setAction('safeDeleteById')
+            ->generateUrl();
+        $this->assertStringEndsWith('/admin/multiple-route/safe-delete-id/456', $url);
+        $this->assertStringNotContainsString('entityId', $url);
+
+        // ...and also works on an "{entityId}" route (the built-in 'edit' action), because it sets
+        // the canonical "entityId" parameter that fills the "{entityId}" placeholder
+        $url = $urlGenerator
+            ->setId(789)
+            ->setDashboard(DashboardController::class)
+            ->setController(MultipleRouteCrudController::class)
+            ->setAction('edit')
+            ->generateUrl();
+        $this->assertStringEndsWith('/admin/multiple-route/789/edit', $url);
+        $this->assertStringNotContainsString('entityId', $url);
+    }
+
+    public function testEntityIdAliasResolvesTheEntity(): void
+    {
+        $client = static::createClient();
+        $container = static::getContainer();
+
+        /** @var EntityManagerInterface $entityManager */
+        $entityManager = $container->get(EntityManagerInterface::class);
+
+        // the test app uses an in-memory SQLite database with no schema, so create it on the fly
+        $metadata = $entityManager->getMetadataFactory()->getAllMetadata();
+        $schemaTool = new SchemaTool($entityManager);
+        $schemaTool->dropSchema($metadata);
+        $schemaTool->createSchema($metadata);
+
+        $product = new Product();
+        $product->setName('Test Product');
+        $product->setPrice(9.99);
+        $entityManager->persist($product);
+        $entityManager->flush();
+
+        // request a custom action whose route uses the "{id}" placeholder: EasyAdmin must load the
+        // entity from the "id" route parameter and expose it through AdminContext::getEntity()
+        $client->request('GET', sprintf('/admin/multiple-route/detail-by-id/%d', $product->getId()));
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSame(
+            sprintf('Detail by id: %d:Test Product', $product->getId()),
+            $client->getResponse()->getContent()
+        );
+    }
+
+    public function testEntityIdAliasCatchAllDetailRouteIsSortedLast(): void
+    {
+        $client = static::createClient();
+        $router = $client->getContainer()->get('router');
+
+        // when a dashboard customizes the 'detail' route path with the "{id}" alias (see
+        // IdAliasDashboardController), the resulting route is still a catch-all pattern, so it must
+        // be registered after the routes of the rest of the actions to not shadow them
+        $multipleRouteRouteNames = [];
+        foreach (array_keys($router->getRouteCollection()->all()) as $name) {
+            if (str_starts_with($name, 'id_alias_admin_multiple_route_')) {
+                $multipleRouteRouteNames[] = $name;
+            }
+        }
+
+        $this->assertNotEmpty($multipleRouteRouteNames);
+        $this->assertSame(
+            'id_alias_admin_multiple_route_detail',
+            end($multipleRouteRouteNames),
+            'The catch-all detail route ("/{id}") must be the last route of its CRUD controller'
+        );
+
+        // since the catch-all detail route is registered last, the URL of a custom action
+        // matches the custom action route instead of the detail route with id = 'action1'
+        $client->request('GET', '/id-alias-admin/multiple-route/action1');
+        $this->assertResponseIsSuccessful();
+        $this->assertSame('Custom Action 1', $client->getResponse()->getContent());
     }
 }

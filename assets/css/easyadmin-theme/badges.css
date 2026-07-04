@@ -17,6 +17,18 @@
     line-height: 16px;
 }
 
+.badge:has(> .icon) {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.badge.badge-sm {
+    --bs-badge-padding-x: 4px;
+    --bs-badge-padding-y: 0;
+    --bs-badge-font-size: 11px;
+}
+
 .badge.badge-success {
     background-color: var(--badge-success-bg);
     box-shadow: var(--badge-success-box-shadow);

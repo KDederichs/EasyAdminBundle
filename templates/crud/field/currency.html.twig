@@ -2,10 +2,10 @@
 {# @var field \EasyCorp\Bundle\EasyAdminBundle\Dto\FieldDto #}
 {# @var entity \EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto #}
 {% if field.customOptions.get('showCode') %}
-    <span class="badge badge-currency" title="{{ field.formattedValue.name }}">{{ field.value }}</span>
+    <twig:ea:Badge variant="currency" title="{{ field.formattedValue.name }}">{{ field.value }}</twig:ea:Badge>
 {% endif %}
 {% if field.customOptions.get('showSymbol') %}
-    <span class="badge badge-currency" title="{{ field.formattedValue.name }}">{{ field.formattedValue.symbol }}</span>
+    <twig:ea:Badge variant="currency" title="{{ field.formattedValue.name }}">{{ field.formattedValue.symbol }}</twig:ea:Badge>
 {% endif %}
 {% if field.customOptions.get('showName') %}
     {{ field.formattedValue.name }}

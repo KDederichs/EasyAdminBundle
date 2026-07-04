@@ -20,16 +20,16 @@
     font-size: var(--button-font-size, .875rem);
     font-weight: var(--button-font-weight, 500);
     gap: var(--button-icon-gap, .5rem);
-    block-size: var(--button-height, 2rem);
+    min-block-size: var(--button-height, 2rem);
     justify-content: space-between;
     line-height: var(--button-line-height);
-    min-inline-size: max-content;
     padding: var(--button-padding-y, var(--button-padding-y-md)) var(--button-padding-x, var(--button-padding-x-md));
+    isolation: isolate;
     position: relative;
     text-align: center;
     text-decoration: none;
-    transition: var(--button-transition-duration) var(--button-transition-timing);
-    transition-property: background-color, border-color, color, opacity, fill;
+    transition: var(--ea-transition-duration) var(--ea-transition-timing);
+    transition-property: border-color, color, box-shadow, opacity, fill;
     user-select: none;
     white-space: nowrap;
 }
@@ -38,7 +38,6 @@
 .btn:not(:disabled):not(.disabled):hover,
 .btn:not(:disabled):not(.disabled):focus,
 .btn:not(:disabled):not(.disabled):focus-visible {
-    background: var(--button-hover-bg, var(--button-bg));
     border-color: var(--button-hover-border-color, var(--button-border-color));
     color: var(--button-hover-color, var(--button-color));
     text-decoration: none;
@@ -46,7 +45,6 @@
 
 /* Button active/focus states */
 .btn:not(:disabled):not(.disabled):active {
-    background: var(--button-active-bg, var(--button-bg));
     border-color: var(--button-active-border-color, var(--button-border-color));
     box-shadow: var(--button-active-box-shadow, var(--button-box-shadow));
     color: var(--button-active-color, var(--button-color));
@@ -57,6 +55,47 @@
     box-shadow: none;
     outline: 2px solid var(--button-focus-outline-color);
     outline-offset: -2px;
+}
+
+/* background state layer: crossfades the hover/active background via opacity, because
+   gradient backgrounds (background-image) can't be transitioned directly. The base .btn
+   keeps the resting background; this layer fades the hover/active background on top.
+   isolation:isolate on .btn lets the z-index:-1 layer paint above the button's own
+   background but below its content. Scoped to exclude .btn-close, and not triggered
+   while loading. */
+.btn:not(.btn-close)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--button-hover-bg, var(--button-bg));
+    opacity: 0;
+    transition: opacity var(--ea-transition-duration) var(--ea-transition-timing);
+    pointer-events: none;
+}
+.btn:not(.btn-close):not(.is-loading):not(:disabled):not(.disabled):hover::before,
+.btn:not(.btn-close):not(.is-loading):not(:disabled):not(.disabled):focus::before,
+.btn:not(.btn-close):not(.is-loading):not(:disabled):not(.disabled):focus-visible::before {
+    opacity: 1;
+}
+.btn:not(.btn-close):not(.is-loading):not(:disabled):not(.disabled):active::before {
+    background: var(--button-active-bg, var(--button-hover-bg, var(--button-bg)));
+    opacity: 1;
+}
+
+/* the close button (Bootstrap .btn-close, used by Alert) is excluded from the state
+   layer; its translucent solid hover background transitions fine directly. */
+.btn-close {
+    transition-property: background-color, border-color, color, box-shadow, opacity, fill;
+}
+.btn-close:not(:disabled):not(.disabled):hover,
+.btn-close:not(:disabled):not(.disabled):focus,
+.btn-close:not(:disabled):not(.disabled):focus-visible {
+    background: var(--button-hover-bg, var(--button-bg));
+}
+.btn-close:not(:disabled):not(.disabled):active {
+    background: var(--button-active-bg, var(--button-hover-bg, var(--button-bg)));
 }
 
 .btn-primary,
@@ -198,7 +237,7 @@
     --button-padding-y: var(--button-padding-y-lg);
     --button-padding-x: var(--button-padding-x-lg);
 
-    block-size: 2.5rem;
+    min-block-size: 2.5rem;
 }
 
 .btn-block {

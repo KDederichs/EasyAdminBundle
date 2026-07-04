@@ -30,6 +30,13 @@ final class CurrencyConfigurator implements FieldConfiguratorInterface
             return;
         }
 
+        if (CurrencyField::CURRENCY_NONE === $currencyCode) {
+            // the ISO 4217 "no currency" code has no ICU name/symbol; use the generic currency sign
+            $field->setFormattedValue(['name' => '¤', 'symbol' => '¤']);
+
+            return;
+        }
+
         $currencyName = $this->getCurrencyName($currencyCode);
         if (null === $currencyName) {
             throw new \InvalidArgumentException(sprintf('The "%s" value used as the currency code of the "%s" field is not a valid ICU currency code.', $currencyCode, $field->getProperty()));

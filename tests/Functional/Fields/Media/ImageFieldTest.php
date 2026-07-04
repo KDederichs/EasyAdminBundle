@@ -129,4 +129,46 @@ class ImageFieldTest extends AbstractFieldFunctionalTest
         $html = $crawler->html();
         static::assertStringContainsString('subdir/nested/image.jpg', $html);
     }
+
+    /**
+     * Files the browser would render inline and could execute scripts from (e.g.
+     * ".svg") must not be opened inline from the edit form: the inline "view"
+     * link is suppressed and only the (safe) download link is kept. Safe image
+     * types keep their inline "view" link.
+     */
+    public function testRiskyImageTypesAreNotViewableInlineInForm(): void
+    {
+        $uploadDir = self::getContainer()->getParameter('kernel.project_dir').'/public/uploads/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        // the form only renders a file card for files that exist on disk
+        $svgName = 'functional-test-payload.svg';
+        $jpgName = 'functional-test-photo.jpg';
+        file_put_contents($uploadDir.$svgName, '<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+        file_put_contents($uploadDir.$jpgName, 'fake-jpg-bytes');
+
+        try {
+            // risky type (.svg): inline "view" link suppressed, download link kept
+            $entity = $this->createFieldTestEntity(['imageField' => $svgName]);
+            $crawler = $this->client->request('GET', $this->generateEditFormUrl($entity->getId()));
+
+            $card = $crawler->filter(sprintf('.ea-fileupload-card[data-filename="%s"]', $svgName));
+            static::assertCount(1, $card, 'The uploaded SVG should render a file-upload card');
+            static::assertCount(0, $card->filter('.ea-fileupload-action-view'), 'The inline "view" link must be suppressed for .svg files');
+            static::assertCount(1, $card->filter('.ea-fileupload-action-download'), 'The "download" link must still be available for .svg files');
+
+            // safe type (.jpg): inline "view" link kept
+            $entity = $this->createFieldTestEntity(['imageField' => $jpgName]);
+            $crawler = $this->client->request('GET', $this->generateEditFormUrl($entity->getId()));
+
+            $card = $crawler->filter(sprintf('.ea-fileupload-card[data-filename="%s"]', $jpgName));
+            static::assertCount(1, $card, 'The uploaded JPG should render a file-upload card');
+            static::assertCount(1, $card->filter('.ea-fileupload-action-view'), 'The inline "view" link must be available for safe image types');
+        } finally {
+            @unlink($uploadDir.$svgName);
+            @unlink($uploadDir.$jpgName);
+        }
+    }
 }

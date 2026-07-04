@@ -78,9 +78,11 @@ class Form {
             //
             // Adding visual error counter feedback for invalid fields inside form tabs (visible or not)
             const that = this;
-            document
-                .querySelector('.ea-edit, .ea-new')
-                .querySelectorAll('[type="submit"]')
+            // the default submit buttons live outside the <form> element and are associated to it
+            // via the HTML 'form' attribute; that's why this uses form.elements (which includes
+            // those buttons) instead of form.querySelectorAll() (which only finds descendants)
+            Array.from(form.elements)
+                .filter((element) => 'submit' === element.type)
                 .forEach((button) => {
                     button.addEventListener('click', function onSubmitButtonsClick(clickEvent) {
                         let formHasErrors = false;
@@ -248,12 +250,11 @@ class Form {
                 () => {
                     // this timeout is needed to include the disabled button into the submitted form
                     setTimeout(() => {
-                        const submitButtons = document
-                            .querySelector('.ea-edit, .ea-new')
-                            .querySelectorAll('[type="submit"]');
-                        submitButtons.forEach((button) => {
-                            button.setAttribute('disabled', 'disabled');
-                        });
+                        Array.from(form.elements)
+                            .filter((element) => 'submit' === element.type)
+                            .forEach((button) => {
+                                button.setAttribute('disabled', 'disabled');
+                            });
                     }, 1);
                 },
                 false

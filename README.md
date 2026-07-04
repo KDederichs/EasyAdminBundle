@@ -100,8 +100,10 @@ Symfony Framework project providing example entities and CRUD Controllers.
 * Checkout the EasyAdmin git repository and switch in the project directory
 * Perform `ddev setup` which starts and provisions the web container
 * EasyAdmin is available under the URL: https://easy-admin-bundle.ddev.site
-* To (re-)build frontend assets perform `ddev build-assets`
-* To run unit tests perform `ddev run-tests`
+* With `ddev make <target>` you can execute predefined tasks from [`Makefile`](./Makefile). Examples:
+  * To update dependencies (Composer and Yarn): `ddev make build`
+  * To (re-)build frontend assets perform `ddev make build-assets`
+  * To run unit tests perform `ddev make tests`
 
 ## Resources
 

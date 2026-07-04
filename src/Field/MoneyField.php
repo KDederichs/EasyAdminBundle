@@ -40,7 +40,7 @@ final class MoneyField implements FieldInterface
 
     public function setCurrency(string $currencyCode): self
     {
-        if (!Currencies::exists($currencyCode)) {
+        if (CurrencyField::CURRENCY_NONE !== $currencyCode && !Currencies::exists($currencyCode)) {
             throw new \InvalidArgumentException(sprintf('The argument of the "%s()" method must be a valid currency code according to ICU data ("%s" given).', __METHOD__, $currencyCode));
         }
 

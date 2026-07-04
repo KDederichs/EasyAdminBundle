@@ -2,7 +2,7 @@
 
 namespace EasyCorp\Bundle\EasyAdminBundle\Tests\Unit\Menu;
 
-use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Option\EA;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\MenuItemDto;
 use EasyCorp\Bundle\EasyAdminBundle\Menu\MenuItemMatcher;
@@ -61,7 +61,7 @@ class MenuItemMatcherTest extends KernelTestCase
         $categoryIndexUrl = $adminUrlGenerator->unsetAll()
             ->setDashboard(DashboardController::class)
             ->setController(CategoryCrudController::class)
-            ->setAction(Crud::PAGE_INDEX)
+            ->setAction(Action::INDEX)
             ->generateUrl();
         $categoryIndexPath = parse_url($categoryIndexUrl, \PHP_URL_PATH);
 
@@ -87,7 +87,7 @@ class MenuItemMatcherTest extends KernelTestCase
         $categoryEditUrl = $adminUrlGenerator->unsetAll()
             ->setDashboard(DashboardController::class)
             ->setController(CategoryCrudController::class)
-            ->setAction(Crud::PAGE_EDIT)
+            ->setAction(Action::EDIT)
             ->setEntityId('57')
             ->generateUrl();
         $categoryEditPath = parse_url($categoryEditUrl, \PHP_URL_PATH);
@@ -95,15 +95,15 @@ class MenuItemMatcherTest extends KernelTestCase
         $request = $this->createRequest(
             crudControllerFqcn: CategoryCrudController::class,
             entityId: '57',
-            action: 'edit',
+            action: Action::EDIT,
             requestPath: $categoryEditPath,
         );
 
-        $menuItemDto = $this->getMenuItemDtoWithUrl($adminUrlGenerator, CategoryCrudController::class, Crud::PAGE_EDIT, '57');
+        $menuItemDto = $this->getMenuItemDtoWithUrl($adminUrlGenerator, CategoryCrudController::class, Action::EDIT, '57');
         $menuItemMatcher->markSelectedMenuItem([$menuItemDto], $request);
         $this->assertTrue($menuItemDto->isSelected(), 'The CRUD controller and the entity ID match');
 
-        $menuItemDto = $this->getMenuItemDtoWithUrl($adminUrlGenerator, CategoryCrudController::class, Crud::PAGE_EDIT, 'NOT_57');
+        $menuItemDto = $this->getMenuItemDtoWithUrl($adminUrlGenerator, CategoryCrudController::class, Action::EDIT, 'NOT_57');
         $menuItemMatcher->markSelectedMenuItem([$menuItemDto], $request);
         $this->assertFalse($menuItemDto->isSelected(), 'The entity ID of the menu item does not match');
 
@@ -111,7 +111,7 @@ class MenuItemMatcherTest extends KernelTestCase
         $categoryDetailUrl = $adminUrlGenerator->unsetAll()
             ->setDashboard(DashboardController::class)
             ->setController(CategoryCrudController::class)
-            ->setAction(Crud::PAGE_DETAIL)
+            ->setAction(Action::DETAIL)
             ->setEntityId('57')
             ->generateUrl();
         $categoryDetailPath = parse_url($categoryDetailUrl, \PHP_URL_PATH);
@@ -119,20 +119,20 @@ class MenuItemMatcherTest extends KernelTestCase
         $request = $this->createRequest(
             crudControllerFqcn: CategoryCrudController::class,
             entityId: '57',
-            action: 'detail',
+            action: Action::DETAIL,
             requestPath: $categoryDetailPath,
         );
 
-        $menuItemDto = $this->getMenuItemDtoWithUrl($adminUrlGenerator, CategoryCrudController::class, Crud::PAGE_DETAIL, '57');
+        $menuItemDto = $this->getMenuItemDtoWithUrl($adminUrlGenerator, CategoryCrudController::class, Action::DETAIL, '57');
         $menuItemMatcher->markSelectedMenuItem([$menuItemDto], $request);
         $this->assertTrue($menuItemDto->isSelected(), 'The CRUD controller, entity ID and action match');
 
-        $menuItemDto = $this->getMenuItemDtoWithUrl($adminUrlGenerator, CategoryCrudController::class, 'NOT_'.Crud::PAGE_DETAIL, '57');
+        $menuItemDto = $this->getMenuItemDtoWithUrl($adminUrlGenerator, CategoryCrudController::class, 'NOT_'.Action::DETAIL, '57');
         $menuItemMatcher->markSelectedMenuItem([$menuItemDto], $request);
         $this->assertFalse($menuItemDto->isSelected(), 'The CRUD controller and entity ID match but the action does not match');
     }
 
-    private function getMenuItemDtoWithUrl(AdminUrlGenerator $adminUrlGenerator, string $controllerFqcn, string $action = Crud::PAGE_INDEX, ?string $entityId = null): MenuItemDto
+    private function getMenuItemDtoWithUrl(AdminUrlGenerator $adminUrlGenerator, string $controllerFqcn, string $action = Action::INDEX, ?string $entityId = null): MenuItemDto
     {
         $menuItemDto = new MenuItemDto();
 
@@ -258,8 +258,8 @@ class MenuItemMatcherTest extends KernelTestCase
         $menuItemMatcher = new MenuItemMatcher($adminUrlGenerator, $adminRouteGenerator);
 
         // generate proper pretty URL paths for the requests
-        $categoryIndexPath = parse_url($adminUrlGenerator->unsetAll()->setDashboard(DashboardController::class)->setController(CategoryCrudController::class)->setAction(Crud::PAGE_INDEX)->generateUrl(), \PHP_URL_PATH);
-        $blogPostNewPath = parse_url($adminUrlGenerator->unsetAll()->setDashboard(DashboardController::class)->setController(BlogPostCrudController::class)->setAction(Crud::PAGE_NEW)->generateUrl(), \PHP_URL_PATH);
+        $categoryIndexPath = parse_url($adminUrlGenerator->unsetAll()->setDashboard(DashboardController::class)->setController(CategoryCrudController::class)->setAction(Action::INDEX)->generateUrl(), \PHP_URL_PATH);
+        $blogPostNewPath = parse_url($adminUrlGenerator->unsetAll()->setDashboard(DashboardController::class)->setController(BlogPostCrudController::class)->setAction(Action::NEW)->generateUrl(), \PHP_URL_PATH);
 
         // test 1: Perfect match with INDEX action
         $menuItems = $this->getComplexMenuItemsWithPrettyUrls($adminUrlGenerator);
@@ -296,10 +296,10 @@ class MenuItemMatcherTest extends KernelTestCase
         $item3 = $this->getMenuItemDtoWithUrl($adminUrlGenerator, BlogPostCrudController::class);
         $item3->setLabel('item3');
 
-        $item5 = $this->getMenuItemDtoWithUrl($adminUrlGenerator, CategoryCrudController::class, Crud::PAGE_NEW);
+        $item5 = $this->getMenuItemDtoWithUrl($adminUrlGenerator, CategoryCrudController::class, Action::NEW);
         $item5->setLabel('item5');
 
-        $item6 = $this->getMenuItemDtoWithUrl($adminUrlGenerator, BlogPostCrudController::class, Crud::PAGE_EDIT, '57');
+        $item6 = $this->getMenuItemDtoWithUrl($adminUrlGenerator, BlogPostCrudController::class, Action::EDIT, '57');
         $item6->setLabel('item6');
 
         $item7 = $this->getMenuItemDtoWithUrl($adminUrlGenerator, ActionsCrudController::class);
@@ -367,7 +367,7 @@ class MenuItemMatcherTest extends KernelTestCase
         if (null !== $action) {
             $menuItemRouteParameters[EA::CRUD_ACTION] = $action;
         } elseif (null === $action && null === $routeName) {
-            $menuItemRouteParameters[EA::CRUD_ACTION] = Crud::PAGE_INDEX;
+            $menuItemRouteParameters[EA::CRUD_ACTION] = Action::INDEX;
         }
 
         if (null !== $entityId) {

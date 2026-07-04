@@ -15,6 +15,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Filters;
 use EasyCorp\Bundle\EasyAdminBundle\Config\KeyValueStore;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Option\EA;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Option\ReplacedFileBehavior;
 use EasyCorp\Bundle\EasyAdminBundle\Context\AdminContext;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Controller\CrudControllerInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Orm\EntityRepositoryInterface;
@@ -129,6 +130,9 @@ abstract class AbstractCrudController extends AbstractController implements Crud
         ]);
     }
 
+    /**
+     * @param AdminContext<TEntity> $context
+     */
     public function index(AdminContext $context): KeyValueStore|Response
     {
         $event = new BeforeCrudActionEvent($context);
@@ -179,6 +183,9 @@ abstract class AbstractCrudController extends AbstractController implements Crud
         return $responseParameters;
     }
 
+    /**
+     * @param AdminContext<TEntity> $context
+     */
     public function detail(AdminContext $context): KeyValueStore|Response
     {
         $event = new BeforeCrudActionEvent($context);
@@ -214,6 +221,9 @@ abstract class AbstractCrudController extends AbstractController implements Crud
         return $responseParameters;
     }
 
+    /**
+     * @param AdminContext<TEntity> $context
+     */
     public function edit(AdminContext $context): KeyValueStore|Response
     {
         $event = new BeforeCrudActionEvent($context);
@@ -297,6 +307,9 @@ abstract class AbstractCrudController extends AbstractController implements Crud
         return $responseParameters;
     }
 
+    /**
+     * @param AdminContext<TEntity> $context
+     */
     public function new(AdminContext $context): KeyValueStore|Response
     {
         $event = new BeforeCrudActionEvent($context);
@@ -362,6 +375,9 @@ abstract class AbstractCrudController extends AbstractController implements Crud
         return $responseParameters;
     }
 
+    /**
+     * @param AdminContext<TEntity> $context
+     */
     public function delete(AdminContext $context): KeyValueStore|Response
     {
         $event = new BeforeCrudActionEvent($context);
@@ -381,7 +397,7 @@ abstract class AbstractCrudController extends AbstractController implements Crud
         $csrfToken = $context->getRequest()->request->has('token')
             ? (string) $context->getRequest()->request->get('token')
             : null;
-        if ($this->container->has('security.csrf.token_manager') && !$this->isCsrfTokenValid('ea-delete', $csrfToken)) {
+        if (!$this->isCsrfTokenValid('ea-delete', $csrfToken)) {
             return $this->redirectToRoute($context->getDashboardRouteName());
         }
 
@@ -421,6 +437,7 @@ abstract class AbstractCrudController extends AbstractController implements Crud
     }
 
     /**
+     * @param AdminContext<TEntity>   $context
      * @param BatchActionDto<TEntity> $batchActionDto
      */
     public function batchDelete(AdminContext $context, BatchActionDto $batchActionDto): Response
@@ -431,8 +448,16 @@ abstract class AbstractCrudController extends AbstractController implements Crud
             return $event->getResponse();
         }
 
-        if (!$this->isCsrfTokenValid('ea-batch-action-'.Action::BATCH_DELETE, $batchActionDto->getCsrfToken())) {
+        if (!$this->isCsrfTokenValid('ea-batch-action-'.Action::BATCH_DELETE.'-'.$batchActionDto->getEntityFqcn(), $batchActionDto->getCsrfToken())) {
             return $this->redirectToRoute($context->getDashboardRouteName());
+        }
+
+        // the entity FQCN in the batch action DTO comes from the POST body and is
+        // attacker-controlled. The FQCN in the admin context comes from the URL-routed
+        // CRUD controller. If they disagree, an admin with batch-delete rights on one
+        // CRUD could delete rows of any other Doctrine entity. Reject the mismatch.
+        if ($batchActionDto->getEntityFqcn() !== $context->getEntity()->getFqcn()) {
+            throw new BadRequestHttpException();
         }
 
         /** @var EntityManagerInterface $entityManager */
@@ -495,8 +520,16 @@ abstract class AbstractCrudController extends AbstractController implements Crud
         return $this->redirect($redirectUrl);
     }
 
+    /**
+     * @param AdminContext<TEntity> $context
+     */
     public function autocomplete(AdminContext $context): JsonResponse
     {
+        // not a typo; we intentionally reuse the INDEX action for permission checks in autocomplete
+        if (!$this->isGranted(Permission::EA_EXECUTE_ACTION, ['action' => Action::INDEX, 'entity' => null, 'entityFqcn' => $context->getEntity()->getFqcn()])) {
+            throw new ForbiddenActionException($context);
+        }
+
         $queryBuilder = $this->createIndexQueryBuilder($context->getSearch(), $context->getEntity(), new FieldCollection([]), new FilterCollection());
 
         $autocompleteContext = $context->getRequest()->query->all(AssociationField::PARAM_AUTOCOMPLETE_CONTEXT);
@@ -547,13 +580,25 @@ abstract class AbstractCrudController extends AbstractController implements Crud
         return JsonResponse::fromJsonString($paginator->getResultsAsJson($callback, $template, $renderAsHtml));
     }
 
+    /**
+     * @param EntityDto<TEntity> $entityDto
+     */
     public function createIndexQueryBuilder(SearchDto $searchDto, EntityDto $entityDto, FieldCollection $fields, FilterCollection $filters): QueryBuilder
     {
         return $this->container->get(EntityRepositoryInterface::class)->createQueryBuilder($searchDto, $entityDto, $fields, $filters);
     }
 
+    /**
+     * @param AdminContext<TEntity> $context
+     */
     public function renderFilters(AdminContext $context): KeyValueStore
     {
+        // not a typo; the filter form is a sub-component of the INDEX page,
+        // so we reuse the INDEX action for permission checks here
+        if (!$this->isGranted(Permission::EA_EXECUTE_ACTION, ['action' => Action::INDEX, 'entity' => null, 'entityFqcn' => $context->getEntity()->getFqcn()])) {
+            throw new ForbiddenActionException($context);
+        }
+
         $fields = new FieldCollection($this->configureFields(Crud::PAGE_INDEX));
         $this->container->get(FieldFactory::class)->processFields($context->getEntity(), $fields, Crud::PAGE_INDEX);
         $filters = $this->container->get(FilterFactory::class)->create($context->getCrud()->getFiltersConfig(), $context->getEntity()->getFields(), $context->getEntity());
@@ -574,44 +619,74 @@ abstract class AbstractCrudController extends AbstractController implements Crud
         return $this->configureResponseParameters($responseParameters);
     }
 
+    /**
+     * @param class-string<TEntity> $entityFqcn
+     *
+     * @phpstan-return TEntity
+     */
     public function createEntity(string $entityFqcn): object
     {
         return new $entityFqcn();
     }
 
+    /**
+     * @param TEntity $entityInstance
+     */
     public function updateEntity(EntityManagerInterface $entityManager, object $entityInstance): void
     {
         $entityManager->persist($entityInstance);
         $entityManager->flush();
     }
 
+    /**
+     * @param TEntity $entityInstance
+     */
     public function persistEntity(EntityManagerInterface $entityManager, object $entityInstance): void
     {
         $entityManager->persist($entityInstance);
         $entityManager->flush();
     }
 
+    /**
+     * @param TEntity $entityInstance
+     */
     public function deleteEntity(EntityManagerInterface $entityManager, object $entityInstance): void
     {
         $entityManager->remove($entityInstance);
         $entityManager->flush();
     }
 
+    /**
+     * @param EntityDto<TEntity>    $entityDto
+     * @param AdminContext<TEntity> $context
+     */
     public function createEditForm(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormInterface
     {
         return $this->createEditFormBuilder($entityDto, $formOptions, $context)->getForm();
     }
 
+    /**
+     * @param EntityDto<TEntity>    $entityDto
+     * @param AdminContext<TEntity> $context
+     */
     public function createEditFormBuilder(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormBuilderInterface
     {
         return $this->container->get(FormFactory::class)->createEditFormBuilder($entityDto, $formOptions, $context);
     }
 
+    /**
+     * @param EntityDto<TEntity>    $entityDto
+     * @param AdminContext<TEntity> $context
+     */
     public function createNewForm(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormInterface
     {
         return $this->createNewFormBuilder($entityDto, $formOptions, $context)->getForm();
     }
 
+    /**
+     * @param EntityDto<TEntity>    $entityDto
+     * @param AdminContext<TEntity> $context
+     */
     public function createNewFormBuilder(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormBuilderInterface
     {
         return $this->container->get(FormFactory::class)->createNewFormBuilder($entityDto, $formOptions, $context);
@@ -687,10 +762,13 @@ abstract class AbstractCrudController extends AbstractController implements Crud
             }
 
             $uploadDelete = $config->getOption('upload_delete');
+            $replacedFileBehavior = $config->getOption('replaced_file_behavior');
 
             if ($state->hasCurrentFiles() && ($state->isDelete() || (!$state->isAddAllowed() && $state->hasUploadedFiles()))) {
-                foreach ($state->getCurrentFiles() as $file) {
-                    $uploadDelete($file);
+                if ($state->isDelete() || ReplacedFileBehavior::DELETE === $replacedFileBehavior) {
+                    foreach ($state->getCurrentFiles() as $file) {
+                        $uploadDelete($file);
+                    }
                 }
                 $state->setCurrentFiles([]);
             }
@@ -706,6 +784,9 @@ abstract class AbstractCrudController extends AbstractController implements Crud
         }
     }
 
+    /**
+     * @param AdminContext<TEntity> $context
+     */
     protected function getRedirectResponseAfterSave(AdminContext $context, string $action): RedirectResponse
     {
         $submitButtonName = $context->getRequest()->request->all()['ea']['newForm']['btn'] ?? null;

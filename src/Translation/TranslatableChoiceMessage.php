@@ -16,27 +16,31 @@ final readonly class TranslatableChoiceMessage implements \Stringable, Translata
     public function __construct(
         /** @var TranslatableMessage $message */
         private TranslatableInterface $message,
-        private ?string $cssClass,
+        private ?string $variant = null,
     ) {
+    }
+
+    public function getMessage(): TranslatableInterface
+    {
+        return $this->message;
+    }
+
+    /**
+     * The badge variant (e.g. 'secondary', 'warning') or null when not rendered as a badge.
+     * The badge markup itself is rendered by the <twig:ea:Badge> component in the template.
+     */
+    public function getVariant(): ?string
+    {
+        return $this->variant;
     }
 
     public function trans(TranslatorInterface $translator, ?string $locale = null): string
     {
-        $message = $this->message->trans($translator, $locale);
-
-        if (null !== $this->cssClass) {
-            return sprintf('<span class="%s">%s</span>', $this->cssClass, $message);
-        }
-
-        return $message;
+        return $this->message->trans($translator, $locale);
     }
 
     public function __toString(): string
     {
-        if (null !== $this->cssClass) {
-            return sprintf('<span class="%s">%s</span>', $this->cssClass, $this->message->getMessage());
-        }
-
         return $this->message->getMessage();
     }
 }

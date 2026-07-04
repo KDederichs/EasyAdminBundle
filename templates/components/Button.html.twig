@@ -1,8 +1,8 @@
 {% props
-    variant = 'default', # primary|default|danger|success|warning (default: 'default')
+    variant = 'default', # primary|default|danger|success|warning|info (default: 'default')
     isInvisible = false, # true|false (default: false) if true, button has transparent background and no border
     isBlock = false, # true|false (default: false) if true, button takes full width of container
-    size = 'md', # sm|md|lg (default: 'md')
+    size = 'md', # sm|md|lg (string or Option\Size enum) (default: 'md')
     icon = null, # icon name string (e.g., 'tabler:user' or 'fa fas fa-user')
     withTrailingIcon = false, # boolean to show icon after label (default: false)
     inactive = false, # boolean to disable the button (default: false)
@@ -19,9 +19,10 @@
 {# handle both string and enum values #}
 {% set html_element_value = htmlElement.value is defined ? htmlElement.value : htmlElement %}
 {% set variant_value = variant.value is defined ? variant.value : variant %}
+{% set size_value = size.value is defined ? size.value : size %}
 
 {% set variant_class = variant_value == 'default' ? 'btn-secondary' : 'btn-' ~ variant_value %}
-{% set size_class = size == 'md' ? '' : 'btn-' ~ size %}
+{% set size_class = size_value == 'md' ? '' : 'btn-' ~ size_value %}
 {% set css_class = html_classes('btn', variant_class, size_class, {
     'btn-invisible': isInvisible,
     'btn-block': isBlock,

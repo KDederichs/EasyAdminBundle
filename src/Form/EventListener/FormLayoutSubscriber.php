@@ -27,10 +27,8 @@ class FormLayoutSubscriber implements EventSubscriberInterface
     /**
      * Deal with the errors of fields inside form tabs and fieldsets. This method has to
      * be executed with a negative priority to make sure that the validation process is done.
-     *
-     * @return void
      */
-    public function handleLayoutErrors(FormEvent $event)
+    public function handleLayoutErrors(FormEvent $event): void
     {
         $this->handleTabErrors($event);
         $this->handleFieldsetErrors($event);

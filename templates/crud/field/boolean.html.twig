@@ -13,15 +13,20 @@
         ) %}
 
     {% if not badge_is_hidden %}
-        <span class="badge {{ field.value == true ? 'badge-boolean-true' : 'badge-boolean-false' }}">
-            {{ (field.value == true ? 'label.true' : 'label.false')|trans }}
-        </span>
+        <twig:ea:Badge variant="{{ field.value == true ? 'boolean-true' : 'boolean-false' }}">
+            {{ (field.value == true ? 'label.true' : 'label.false')|trans(domain: 'EasyAdminBundle') }}
+        </twig:ea:Badge>
     {% endif %}
 {% else %}
-    <div class="form-check form-switch">
-        <input type="checkbox" class="form-check-input" id="{{ field.uniqueId }}" {{ field.value == true ? 'checked' }}
-            data-toggle-url="{{ field.customOptions.get('toggleUrl') }}"
-            {{ field.formTypeOption('disabled') == true ? 'disabled' }} autocomplete="off">
-        <label class="form-check-label" for="{{ field.uniqueId }}"></label>
-    </div>
+    {# a TranslatableMessage can't be stringified directly, so translate it first and guard against false/null/'' #}
+    {% set switch_aria_label = (field.label is not same as(false) and field.label is not null and field.label is not same as(''))
+        ? field.label|trans(domain: ea.i18n.translationDomain) : null %}
+    <twig:ea:Switch
+        id="{{ field.uniqueId }}"
+        checked="{{ true == field.value }}"
+        disabled="{{ true == field.formTypeOption('disabled') }}"
+        variant="{{ field.customOptions.get('switchVariant') }}"
+        ariaLabel="{{ switch_aria_label }}"
+        data-toggle-url="{{ field.customOptions.get('toggleUrl')|default('') }}"
+    />
 {% endif %}

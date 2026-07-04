@@ -167,7 +167,8 @@ table.datagrid:not(.datagrid-empty) tr:not(.empty-row) td.actions.actions-as-dro
 }
 
 /* clickable rows for default row action */
-.datagrid tr.ea-clickable-row {
+.datagrid tr.ea-clickable-row,
+.datagrid tr[data-default-action-url] {
     cursor: pointer;
 }
 .datagrid tr.ea-clickable-row td.actions,
@@ -279,11 +280,6 @@ table.datagrid:not(.datagrid-empty) tr:not(.empty-row) td.actions.actions-as-dro
     position: relative;
 }
 
-.datagrid .dropdown-actions .dropstart .dropdown-toggle:before {
-    margin-inline-start: -20px;
-    position: absolute;
-}
-
 /* Position nested dropdown menu to the left */
 .datagrid .dropdown-actions .dropdown-menu .dropstart > .dropdown-menu {
     inset-block-start: 0;
@@ -328,15 +324,6 @@ table.datagrid:not(.datagrid-empty) tr:not(.empty-row) td.actions.actions-as-dro
     display: none;
 }
 
-.datagrid .dropdown-actions .dropdown-menu .dropstart .dropdown-toggle-split .dropdown-toggle-marker {
-    /* this is a chevron-like icon made out of text with CSS border tricks */
-    border-block-end: .3em solid transparent;
-    border-inline-end: .3em solid;
-    border-block-start: .3em solid transparent;
-    content: "";
-    display: inline-block;
-}
-
 .datagrid .ea-lightbox-thumbnail img {
     background: var(--white);
     border: 1px solid transparent;
@@ -366,17 +353,6 @@ table.datagrid:not(.datagrid-empty) tr:not(.empty-row) td.actions.actions-as-dro
     padding: 6px 8px;
 }
 
-.datagrid .field-boolean .form-switch {
-    display: inline-flex;
-    justify-content: center;
-    margin-block-end: 0;
-    padding-inline-start: 0;
-}
-.datagrid .field-boolean .form-switch input {
-    margin-block-start: 0;
-    position: relative;
-    inset-block-start: 3px;
-}
 @media (max-width: 992px) {
     .datagrid .field-country {
         text-align: left !important;

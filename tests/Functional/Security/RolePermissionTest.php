@@ -5,6 +5,7 @@ namespace EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Security;
 use EasyCorp\Bundle\EasyAdminBundle\Exception\ForbiddenActionException;
 use EasyCorp\Bundle\EasyAdminBundle\Test\AbstractCrudTestCase;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\SecuredApp\Controller\CategoryCrudController;
+use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\SecuredApp\Controller\ProtectedCategoryCrudController;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\SecuredApp\Controller\SecuredDashboardController;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\SecuredApp\Kernel;
 use Symfony\Component\HttpFoundation\Response;
@@ -128,5 +129,81 @@ class RolePermissionTest extends AbstractCrudTestCase
         yield 'user cannot see protected field' => ['user', false];
         yield 'admin cannot see protected field' => ['admin', false];
         yield 'super_admin can see protected field' => ['super_admin', true];
+    }
+
+    /**
+     * @dataProvider provideRolesForAutocompleteAction
+     */
+    public function testAutocompleteActionPermission(string $username, int $expectedStatusCode): void
+    {
+        if (Response::HTTP_FORBIDDEN === $expectedStatusCode) {
+            $this->expectException(ForbiddenActionException::class);
+            $this->client->catchExceptions(false);
+        }
+
+        $autocompleteUrl = $this->getCrudUrl(
+            'autocomplete',
+            null,
+            [
+                'autocompleteContext[crudControllerFqcn]' => ProtectedCategoryCrudController::class,
+                'autocompleteContext[propertyName]' => 'name',
+                'autocompleteContext[originatingPage]' => 'new',
+            ],
+            SecuredDashboardController::class,
+            ProtectedCategoryCrudController::class,
+        );
+
+        $this->client->request(
+            'GET',
+            $autocompleteUrl,
+            [],
+            [],
+            ['PHP_AUTH_USER' => $username, 'PHP_AUTH_PW' => '1234']
+        );
+
+        static::assertResponseStatusCodeSame($expectedStatusCode);
+    }
+
+    public static function provideRolesForAutocompleteAction(): \Generator
+    {
+        yield 'user role cannot access autocomplete without INDEX permission' => ['user', Response::HTTP_FORBIDDEN];
+        yield 'admin role can access autocomplete with INDEX permission' => ['admin', Response::HTTP_OK];
+        yield 'super_admin role can access autocomplete with INDEX permission' => ['super_admin', Response::HTTP_OK];
+    }
+
+    /**
+     * @dataProvider provideRolesForRenderFiltersAction
+     */
+    public function testRenderFiltersActionPermission(string $username, int $expectedStatusCode): void
+    {
+        if (Response::HTTP_FORBIDDEN === $expectedStatusCode) {
+            $this->expectException(ForbiddenActionException::class);
+            $this->client->catchExceptions(false);
+        }
+
+        $renderFiltersUrl = $this->getCrudUrl(
+            'renderFilters',
+            null,
+            [],
+            SecuredDashboardController::class,
+            ProtectedCategoryCrudController::class,
+        );
+
+        $this->client->request(
+            'GET',
+            $renderFiltersUrl,
+            [],
+            [],
+            ['PHP_AUTH_USER' => $username, 'PHP_AUTH_PW' => '1234']
+        );
+
+        static::assertResponseStatusCodeSame($expectedStatusCode);
+    }
+
+    public static function provideRolesForRenderFiltersAction(): \Generator
+    {
+        yield 'user role cannot access renderFilters without INDEX permission' => ['user', Response::HTTP_FORBIDDEN];
+        yield 'admin role can access renderFilters with INDEX permission' => ['admin', Response::HTTP_OK];
+        yield 'super_admin role can access renderFilters with INDEX permission' => ['super_admin', Response::HTTP_OK];
     }
 }

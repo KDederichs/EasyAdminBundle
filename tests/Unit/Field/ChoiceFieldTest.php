@@ -6,6 +6,8 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\ChoiceField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\ChoiceConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Unit\Field\Fixtures\ChoiceField\PriorityUnitEnum;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Unit\Field\Fixtures\ChoiceField\StatusBackedEnum;
+use EasyCorp\Bundle\EasyAdminBundle\Translation\TranslatableChoiceMessage;
+use EasyCorp\Bundle\EasyAdminBundle\Translation\TranslatableChoiceMessageCollection;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use function Symfony\Component\Translation\t;
 
@@ -162,23 +164,43 @@ class ChoiceFieldTest extends AbstractFieldTest
         $field->setValue([1, 3]);
         self::assertSame('a, c', (string) $this->configure($field)->getFormattedValue());
 
+        // when rendered as badges, the badge markup is produced by the <twig:ea:Badge>
+        // component in the template; the formatted value exposes the bare badge variant
+        // of each choice and stringifies to plain text
         $field->setValue(1)->renderAsBadges();
-        self::assertSame('<span class="badge badge-secondary">a</span>', (string) $this->configure($field)->getFormattedValue());
+        $value = $this->configure($field)->getFormattedValue();
+        self::assertInstanceOf(TranslatableChoiceMessageCollection::class, $value);
+        self::assertTrue($value->isRenderedAsBadge());
+        self::assertSame('a', (string) $value);
+        self::assertSame(['secondary'], $this->badgeVariants($value));
 
         $field->setValue([1, 3])->renderAsBadges();
-        self::assertSame('<span class="badge badge-secondary">a</span><span class="badge badge-secondary">c</span>', (string) $this->configure($field)->getFormattedValue());
+        $value = $this->configure($field)->getFormattedValue();
+        self::assertSame('a, c', (string) $value);
+        self::assertSame(['secondary', 'secondary'], $this->badgeVariants($value));
 
         $field->setValue(1)->renderAsBadges([1 => 'warning', '3' => 'danger']);
-        self::assertSame('<span class="badge badge-warning">a</span>', (string) $this->configure($field)->getFormattedValue());
+        self::assertSame(['warning'], $this->badgeVariants($this->configure($field)->getFormattedValue()));
 
         $field->setValue([1, 3])->renderAsBadges([1 => 'warning', '3' => 'danger']);
-        self::assertSame('<span class="badge badge-warning">a</span><span class="badge badge-danger">c</span>', (string) $this->configure($field)->getFormattedValue());
+        self::assertSame(['warning', 'danger'], $this->badgeVariants($this->configure($field)->getFormattedValue()));
 
         $field->setValue(1)->renderAsBadges(static fn (mixed $value): string => $value > 1 ? 'success' : 'primary');
-        self::assertSame('<span class="badge badge-primary">a</span>', (string) $this->configure($field)->getFormattedValue());
+        self::assertSame(['primary'], $this->badgeVariants($this->configure($field)->getFormattedValue()));
 
         $field->setValue([1, 3])->renderAsBadges(static fn (mixed $value): string => $value > 1 ? 'success' : 'primary');
-        self::assertSame('<span class="badge badge-primary">a</span><span class="badge badge-success">c</span>', (string) $this->configure($field)->getFormattedValue());
+        self::assertSame(['primary', 'success'], $this->badgeVariants($this->configure($field)->getFormattedValue()));
+    }
+
+    /**
+     * @return list<string|null>
+     */
+    private function badgeVariants(TranslatableChoiceMessageCollection $collection): array
+    {
+        return array_map(
+            static fn (TranslatableChoiceMessage $message): ?string => $message->getVariant(),
+            iterator_to_array($collection)
+        );
     }
 
     public function testAllowMultipleChoicesEnabled(): void
@@ -258,7 +280,8 @@ class ChoiceFieldTest extends AbstractFieldTest
         $fieldDto = $this->configure($field);
 
         self::assertTrue($fieldDto->getCustomOption(ChoiceField::OPTION_RENDER_AS_BADGES));
-        self::assertStringContainsString('badge', (string) $fieldDto->getFormattedValue());
+        self::assertInstanceOf(TranslatableChoiceMessageCollection::class, $fieldDto->getFormattedValue());
+        self::assertTrue($fieldDto->getFormattedValue()->isRenderedAsBadge());
     }
 
     public function testRenderAsBadgesDisabled(): void

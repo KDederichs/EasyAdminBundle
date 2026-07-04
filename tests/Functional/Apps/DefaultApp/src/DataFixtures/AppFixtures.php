@@ -26,6 +26,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Entity\Synt
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Entity\Synthetic\SearchTestEntity;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Entity\Synthetic\SortTestEntity;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Entity\Synthetic\SortTestRelatedEntity;
+use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Entity\Synthetic\UrlSortSecurityTestEntity;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Entity\User;
 use EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Entity\Website;
 
@@ -82,6 +83,8 @@ class AppFixtures extends Fixture
 
         $this->addSortTestFixtures($manager);
 
+        $this->addUrlSortSecurityTestFixtures($manager);
+
         $this->addSearchTestFixtures($manager);
 
         $this->addActionTestFixtures($manager);
@@ -91,7 +94,7 @@ class AppFixtures extends Fixture
         $manager->flush();
     }
 
-    private function addAssociationFixtures(ObjectManager $manager)
+    private function addAssociationFixtures(ObjectManager $manager): void
     {
         // customer <-Many-To-Many-> Bill
 
@@ -604,6 +607,28 @@ class AppFixtures extends Fixture
                 $oneToManyRelated->setSortTestEntity($entity);
                 $manager->persist($oneToManyRelated);
             }
+        }
+    }
+
+    private function addUrlSortSecurityTestFixtures(ObjectManager $manager): void
+    {
+        // values chosen so that sorting by id, displayedField, hiddenField, or
+        // otherField each produces a distinct row order — that lets the test
+        // assert a specific expected order and detect when an attacker-controlled
+        // sort actually took effect (vs. being rejected and falling back to id ASC)
+        $rows = [
+            ['displayedField' => 'Zulu',  'hiddenField' => 'Alpha',   'otherField' => 'Bravo'],
+            ['displayedField' => 'Alpha', 'hiddenField' => 'Zulu',    'otherField' => 'Charlie'],
+            ['displayedField' => 'Mike',  'hiddenField' => 'Mike',    'otherField' => 'Alpha'],
+        ];
+
+        foreach ($rows as $row) {
+            $entity = (new UrlSortSecurityTestEntity())
+                ->setDisplayedField($row['displayedField'])
+                ->setHiddenField($row['hiddenField'])
+                ->setOtherField($row['otherField']);
+
+            $manager->persist($entity);
         }
     }
 

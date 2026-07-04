@@ -218,6 +218,13 @@ and CRUD controllers define ``addFormTheme(string $themePath)`` and
 ``setFormThemes(array $themePaths)`` methods so you can
 `customize individual form fields`_ using your own form theme.
 
+.. tip::
+
+    EasyAdmin's form theme also works for regular Symfony forms not built with
+    EasyAdmin fields. This is useful to make the forms rendered on your own
+    backend pages look exactly like the rest of the backend forms. See
+    :ref:`how to render Symfony forms in custom pages <custom-pages-symfony-forms>`.
+
 Imagine a form field where you want to include a ``<a>`` element that links to
 additional information. If the field is called ``title`` and belongs to a
 ``Product`` entity, the configuration would look like this::
@@ -271,6 +278,37 @@ Finally, add this custom theme to the list of themes used to render backend form
     In the example above it would look like this:
     ``{% block _Product_title_widget %}``. The full syntax is:
     ``{% block _<Entity name>_<Field name>_widget %}``.
+
+Using EasyAdmin Twig Components
+-------------------------------
+
+EasyAdmin uses `Twig Components`_ to render some parts of its interface. These
+components are registered under the ``ea:`` prefix and you can also use them in
+your own admin templates (e.g. when overriding backend templates or creating
+custom pages):
+
+.. code-block:: twig
+
+    <twig:ea:Badge variant="success">Published</twig:ea:Badge>
+
+    <twig:ea:Alert variant="warning" withDismissButton>
+        Some important message
+    </twig:ea:Alert>
+
+    <twig:ea:Icon name="user"/>
+
+    <twig:ea:Flag countryCode="JP"/>
+
+These are the available components:
+
+* ``ea:Badge``, renders a small colored label, commonly used for statuses,
+  counts and tags;
+* ``ea:Alert``, highlights important messages that require the user's attention,
+  such as notifications and flash messages;
+* ``ea:Icon``, renders the SVG icon associated to the given ``name``. The icon
+  is resolved using the icon set configured in the backend (`FontAwesome icons`_
+  by default, or :ref:`your own icon set <icon-customization>`);
+* ``ea:Flag``, renders the flag of a country as an SVG image.
 
 .. _crud-design-custom-web-assets:
 
@@ -502,3 +540,4 @@ is not installed.
 .. _`Tabler`: https://tabler.io/icons
 .. _`Content Security Policy`: https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
 .. _`NelmioSecurityBundle`: https://github.com/nelmio/NelmioSecurityBundle
+.. _`Twig Components`: https://symfony.com/bundles/ux-twig-component/current/index.html

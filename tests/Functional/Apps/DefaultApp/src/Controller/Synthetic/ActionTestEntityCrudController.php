@@ -141,6 +141,7 @@ class ActionTestEntityCrudController extends AbstractCrudController
             });
     }
 
+    #[AdminRoute]
     public function noop(AdminContext $context): Response
     {
         return $this->redirect($this->container->get(AdminUrlGenerator::class)->setAction(Action::INDEX)->generateUrl());

@@ -5,6 +5,7 @@ namespace EasyCorp\Bundle\EasyAdminBundle\DataCollector;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Option\EA;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Context\AdminContextInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Provider\AdminContextProviderInterface;
+use EasyCorp\Bundle\EasyAdminBundle\Router\EntityIdReader;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\DataCollector\DataCollector as BaseDataCollector;
@@ -33,17 +34,12 @@ class EasyAdminDataCollector extends BaseDataCollector
             return;
         }
 
-        $collectedData = [];
-        foreach ($this->collectData($context) as $key => $value) {
-            $collectedData[$key] = $this->cloneVar($value);
-        }
-
-        $this->data = $collectedData;
+        $this->data = $this->cloneVar($this->collectData($context));
     }
 
     public function isEasyAdminRequest(): bool
     {
-        return 0 !== \count($this->data);
+        return $this->data instanceof Data;
     }
 
     /**
@@ -65,7 +61,7 @@ class EasyAdminDataCollector extends BaseDataCollector
         return [
             'CRUD Controller FQCN' => null === $context->getCrud() ? null : $context->getCrud()->getControllerFqcn(),
             'CRUD Action' => $attributes[EA::CRUD_ACTION] ?? $query[EA::CRUD_ACTION] ?? null,
-            'Entity ID' => $attributes[EA::ENTITY_ID] ?? $query[EA::ENTITY_ID] ?? null,
+            'Entity ID' => EntityIdReader::fromRequest($context->getRequest()),
             'Sort' => $attributes[EA::SORT] ?? $query[EA::SORT] ?? null,
         ];
     }

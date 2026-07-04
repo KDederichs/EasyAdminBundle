@@ -359,6 +359,8 @@ the second argument is the icon to display. The icon name follows the pattern
     so you don't need to take any additional steps to use FontAwesome icons. Alternatively,
     you can :ref:`use your own icon sets <icon-customization>` instead of FontAwesome.
 
+.. _menu-item-options:
+
 Menu Item Configuration Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -375,6 +377,9 @@ All menu items define the following methods to configure some options:
   for more details.
 * ``setHtmlAttribute(string $name, mixed $value)``, sets a custom HTML attribute
   in the HTML element that renders the menu item.
+* ``setQueryParameter(string $parameterName, mixed $parameterValue)``, adds the
+  given query parameter to the URL generated for the menu item (e.g. to filter
+  the listing of the linked CRUD controller).
 * ``setBadge($content, string $style='secondary', array $htmlAttributes = [])``, renders the given content
   as a badge of the menu item. It's commonly used to show notification counts.
   The first argument can be any value that can be converted to a string in a Twig
@@ -442,6 +447,18 @@ You can also link to your own Symfony controllers if they use the
 If the controller is invokable (has a ``__invoke()`` method), the action is
 detected automatically. Otherwise, call ``->setAction('theActionName')`` to
 specify which action to link to.
+
+In addition to the :ref:`common options of all menu items <menu-item-options>`,
+controller menu items define the following options:
+
+* ``setAction(string $actionName)``, sets the controller action to link to
+  (``index`` by default for CRUD controllers). Use the ``Action::*`` constants
+  for built-in CRUD actions or the method name for custom actions;
+* ``setEntityId($entityId)``, sets the ID of the entity to load in actions that
+  are associated to a specific entity (e.g. ``Action::DETAIL`` and ``Action::EDIT``);
+* ``setDefaultSort(array $sortFieldsAndOrder)``, sets the initial sorting
+  applied to the ``index`` action (e.g. ``['createdAt' => 'DESC']``). This only
+  applies until the user changes the sorting by clicking on any column.
 
 Dashboard Menu Item
 ...................
@@ -692,20 +709,20 @@ automatically on each backend request. This object implements the `context objec
 design pattern and stores all the information commonly needed in different parts
 of the backend.
 
-This context object is automatically injected in every template as a variable
-called ``ea`` (the initials of "EasyAdmin"):
+In templates, use the ``ea()`` Twig function (the initials of "EasyAdmin") to
+get this context object:
 
 .. code-block:: twig
 
-    <h1>{{ ea.dashboardTitle }}</h1>
+    <h1>{{ ea().dashboardTitle }}</h1>
 
-    {% for menuItem in ea.mainMenu.items %}
+    {% for menuItem in ea().mainMenu.items %}
         {# ... #}
     {% endfor %}
 
-The ``AdminContext`` variable is created dynamically on each request, so you
+The ``AdminContext`` object is created dynamically on each request, so you
 can't inject it directly in your services. Instead, use the ``AdminContextProvider``
-service to get the context variable::
+service to get the context object::
 
     use EasyCorp\Bundle\EasyAdminBundle\Provider\AdminContextProvider;
 
@@ -884,7 +901,7 @@ When using this feature, you can omit the label when creating CRUD menu items:
         yield MenuItem::linkToDashboard('Dashboard', 'fa fa-home');
 
         // no label needed: will use the translated plural label
-        yield MenuItem::linkTo(BlogPostCrudController:::class, icon: 'fa fa-file-text');
+        yield MenuItem::linkTo(BlogPostCrudController::class, icon: 'fa fa-file-text');
         yield MenuItem::linkTo(UserCrudController::class, icon: 'fa fa-users');
     }
 
@@ -1090,6 +1107,30 @@ applications can rely on its default values::
         }
     }
 
+Like all EasyAdmin templates, the login template defines several Twig blocks
+that you can use to customize its content or add new elements. For example, it
+includes a ``login_form_footer`` block right after the form and before the
+inline login script, which you can use to render additional markup (such as a
+disclaimer or a link to the terms of service). Create your own template that
+extends the login template and override this block:
+
+.. code-block:: twig
+
+    {# templates/security/login.html.twig #}
+    {% extends '@EasyAdmin/page/login.html.twig' %}
+
+    {% block login_form_footer %}
+        <p class="text-center mt-3">
+            <a href="{{ path('terms') }}">Terms of Service</a>
+        </p>
+    {% endblock %}
+
+Then update your security controller to render this custom template instead of
+``@EasyAdmin/page/login.html.twig`` (or override EasyAdmin's template globally by
+placing the override at ``templates/bundles/EasyAdminBundle/page/login.html.twig``
+and extending ``@!EasyAdmin/page/login.html.twig``, which keeps the original login
+controller untouched).
+
 .. _content_page_template:
 
 Content Page Template
@@ -1132,7 +1173,47 @@ etc. Example:
         </table>
     {% endblock %}
 
+.. _custom-pages-symfony-forms:
+
+Rendering Symfony Forms in Custom Pages
+.......................................
+
+Custom pages can also render your own Symfony forms. However, if you render
+them with ``{{ form(my_form) }}``, their design won't match the design of the
+rest of the backend forms. The reason is that the design of EasyAdmin forms is
+applied via a Symfony `form theme`_ which is only used by default on the CRUD
+``new`` and ``edit`` pages.
+
+Use the ``form_theme`` Twig tag to apply EasyAdmin's form theme to your own
+forms and they will look exactly like the rest of the backend forms:
+
+.. code-block:: twig
+
+    {# templates/admin/my-custom-page.html.twig #}
+    {% extends '@EasyAdmin/page/content.html.twig' %}
+    {% form_theme my_form with ['@EasyAdmin/crud/form_theme.html.twig'] only %}
+
+    {% block content_title %}The Title of the Page{% endblock %}
+
+    {% block main %}
+        {{ form(my_form) }}
+    {% endblock %}
+
+.. tip::
+
+    If your form uses Symfony's ``CollectionType``, load also EasyAdmin's
+    ``form.js`` asset, which implements the buttons to add and remove
+    collection items:
+
+    .. code-block:: twig
+
+        {% block head_javascript %}
+            {{ parent() }}
+            <script src="{{ asset('form.js', ea.assets.defaultAssetPackageName) }}"></script>
+        {% endblock %}
+
 .. _`Symfony controllers`: https://symfony.com/doc/current/controller.html
+.. _`form theme`: https://symfony.com/doc/current/form/form_themes.html
 .. _`context object`: https://wiki.c2.com/?ContextObject
 .. _`FontAwesome`: https://fontawesome.com/
 .. _`allowed values for the "rel" attribute`: https://developer.mozilla.org/en-US/docs/Web/HTML/Link_types

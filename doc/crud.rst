@@ -77,6 +77,16 @@ Admin route name                Admin route path
     dashboards. You can :ref:`restrict which controllers are accessible <security-controllers>`
     on each dashboard to not generate all these routes.
 
+.. note::
+
+    Because route names join the controller and action names with underscores, two
+    different controllers can generate the same route name when one entity name is a
+    prefix of another. For example, a ``FooCrudController`` (whose ``batchDelete`` action
+    generates ``admin_foo_batch_delete``) collides with a ``FooBatchCrudController`` (whose
+    ``delete`` action also generates ``admin_foo_batch_delete``). EasyAdmin detects this and
+    throws a descriptive exception. To resolve it, use the ``#[AdminRoute]`` attribute (see
+    below) to set a different ``name`` on one of the colliding controllers or actions.
+
 You can customize the route names and/or paths of the actions of all the CRUD controllers
 served by some dashboard using the ``routes`` option of the ``#[AdminDashboard]`` attribute::
 
@@ -108,6 +118,15 @@ Admin route name                Admin route path
 ``admin_product_delete``        ``/admin/product/remove/324``
 ``admin_product_view``          ``/admin/product/324``
 ==============================  =====================================
+
+.. tip::
+
+    The route paths of the ``edit``, ``delete`` and ``detail`` actions must contain
+    the ``{entityId}`` placeholder, which identifies the current entity. You can also
+    use ``{id}`` as an alias of ``{entityId}`` (e.g. ``'detail' => ['routePath' => '/{id}']``).
+    Both placeholders work the same in EasyAdmin, but ``{id}`` also allows Symfony
+    to inject the entity as a typed controller argument automatically
+    (see :ref:`custom actions <actions-custom>`).
 
 You can also customize the path and/or route name of CRUD controllers using the
 ``#[AdminRoute]`` attribute with the following options:
@@ -850,17 +869,17 @@ refers to "whichever template is configured as the layout in the application".
 
 Working with template names instead of paths gives you full flexibility to
 customize the application behavior while keeping all the customized templates.
-In Twig templates, use the ``ea.templatePath()`` function to get the Twig path
+In Twig templates, use the ``ea().templatePath()`` method to get the Twig path
 associated to the given template name:
 
 .. code-block:: twig
 
     <div id="flash-messages">
-        {{ include(ea.templatePath('flash_messages')) }}
+        {{ include(ea().templatePath('flash_messages')) }}
     </div>
 
     {% if some_value is null %}
-        {{ include(ea.templatePath('label/null')) }}
+        {{ include(ea().templatePath('label/null')) }}
     {% endif %}
 
 .. _crud-generate-urls:
@@ -972,6 +991,25 @@ method (it will be called automatically for you):
     {% set url = ea_url()
         .setController('App\\Controller\\Admin\\SomeCrudController')
         .setAction('theActionName') %}
+
+When the URL points to an action that operates on a specific entity (e.g. ``edit``,
+``detail`` or a custom action), set the entity identifier with the ``setEntityId()``
+method. You can also use ``setId()``, a more concise alias of ``setEntityId()``
+(both work no matter if the route path uses the ``{entityId}`` placeholder or
+its ``{id}`` alias):
+
+.. code-block:: twig
+
+    {% set url = ea_url()
+        .setController('App\\Controller\\Admin\\SomeCrudController')
+        .setAction('detail')
+        .setId(product.id) %}
+
+.. note::
+
+    The ``setId()`` method is not part of ``AdminUrlGeneratorInterface`` yet (it will
+    be added in the next major version of EasyAdmin). If you generate URLs in PHP code
+    and type-hint the ``AdminUrlGeneratorInterface``, use ``setEntityId()`` instead.
 
 Generating CRUD URLs from outside EasyAdmin
 ...........................................

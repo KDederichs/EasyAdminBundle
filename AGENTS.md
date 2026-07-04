@@ -6,7 +6,7 @@ Welcome, AI assistant. Please follow these guidelines when contributing to this 
 
 EasyAdminBundle is a third-party Symfony bundle for creating admin backends. It provides CRUD controllers, dashboard management, and extensive field/filter configuration.
 
-**Requirements:** PHP 8.1+, Symfony 5.4/6.x/7.x/8.x, Doctrine ORM 2.12+
+**Requirements:** PHP 8.2+, Symfony 6.4/7.x/8.x, Doctrine ORM 2.20+ or 3.6+
 
 ## General Rules
 
@@ -30,78 +30,61 @@ EasyAdminBundle is a third-party Symfony bundle for creating admin backends. It 
 - **Context Facade**: AdminContext wraps Request/Crud/Dashboard/I18n contexts
 - **DTO Layer**: Type-safe data transfer (ActionDto, EntityDto, FieldDto, etc.)
 - **Event Subscriber**: AdminRouterSubscriber, CrudAutocompleteSubscriber
-- **Registry**: DashboardControllerRegistry, CrudControllerRegistry, TemplateRegistry
+- **Registry**: AdminControllerRegistry, TemplateRegistry
 - **Provider**: AdminContextProvider, FieldProvider
 - **Typed Collections**: FieldCollection, ActionCollection, FilterCollection
 - **Argument Resolver**: AdminContextResolver, BatchActionDtoResolver
 
+Don't modify the public API in `Contracts/` lightly — it's a stable, versioned interface that third-party code depends on.
+
+### Design Principles
+- Never surface internal complexity to end users. Keep the public API small, simple, and consistent; push complexity down into internal classes (factories, configurators, DTOs), not onto the people configuring a backend.
+- Public APIs are stable contracts: prefer additive, backward-compatible changes and don't leak internal types or implementation details through them.
+
+### Backward Compatibility
+Follow [Symfony's BC policy](https://symfony.com/bc): never break public API — deprecate first, keep the old path working, remove only in the next major. Emit deprecations with `@trigger_deprecation('easycorp/easyadmin-bundle', '<version>', '<message>')`, naming the replacement and removal version.
+
+### Configuration Model
+User-facing config uses fluent **builders** (`Config/`, `Field/`): static `new()` + chainable setters returning `self`. Each builder converts via `getAsDto()` into an immutable **DTO** (`Dto/`) for internal use. New configurable concepts follow this split — fluent builder for users, DTO internally; never expose a DTO as the config surface.
+
 ### Main Namespace
 `EasyCorp\Bundle\EasyAdminBundle\`
 
-## Directory Structure
-
-```
-src/
-├── ArgumentResolver/   # Controller argument resolvers
-├── Config/             # Configuration classes (Crud, Dashboard, Action, etc.)
-├── Context/            # AdminContext and related context classes
-├── Contracts/          # Public interfaces (stable API)
-├── Controller/         # AbstractCrudController, AbstractDashboardController
-├── Dto/                # Data transfer objects
-├── Event/              # Event classes
-├── EventListener/      # Event subscribers and listeners
-├── Factory/            # ActionFactory, EntityFactory, FieldFactory, etc.
-├── Field/              # Field type classes (TextField, AssociationField, etc.)
-├── Filter/             # Filter type classes
-├── Form/               # Form types and extensions
-├── Provider/           # AdminContextProvider, FieldProvider
-├── Registry/           # DashboardControllerRegistry, CrudControllerRegistry
-├── Router/             # Admin URL generation
-├── Security/           # Permission system
-├── Twig/               # Twig extensions and components
-templates/              # Twig templates
-tests/
-├── Functional/         # Functional tests
-├── TestUtils/          # Tests for the utility classes used in tests
-├── Unit/               # Unit tests
-```
-
 ## Commands
 
-### Development
+The `Makefile` is the source of truth for build/lint/test commands; its targets match what CI runs. Prefer them over hand-typed invocations. Run `make help` to list every target.
+
+### Setup
 ```bash
-composer install              # Install PHP dependencies
-yarn install                  # Install JS dependencies
+make build          # composer update + yarn install (first-time setup)
+composer install    # PHP dependencies only
+yarn install        # JS dependencies only
+```
+
+### Before Creating a PR
+Run the full check suite (linters + tests, identical to CI):
+```bash
+make checks-before-pr
 ```
 
 ### Pre-Commit Checklist
+Run the relevant target(s) for what you changed:
 
-Before submitting changes, run these commands to verify them:
+| Changed          | Run                                                               |
+|------------------|-------------------------------------------------------------------|
+| PHP code         | `make linter-phpstan`, `make linter-cs-fixer`, `make tests`       |
+| JS / CSS         | `yarn ci`, then `make build-assets`                               |
+| Twig templates   | `make linter-twig`                                                |
+| Documentation    | `make linter-docs`                                                |
+| Translations     | keep all locales consistent; use English as placeholder if unsure |
 
-If PHP code changed:
-- `./vendor/bin/phpstan analyse` passes with no errors
-- `php-cs-fixer fix --dry-run` shows no issues
-- Run tests with:
-  ```bash
-  ./vendor/bin/simple-phpunit                    # All tests
-  ./vendor/bin/simple-phpunit tests/Field/       # Specific directory
-  ./vendor/bin/simple-phpunit --filter=testName  # Specific test
-  USE_PRETTY_URLS=1 ./vendor/bin/simple-phpunit tests/Controller/PrettyUrls/ # only when working on pretty URLs feature
-  ```
-
-If JS/CSS changed:
-- `yarn ci` passes with no errors
-- `yarn biome check --write` shows no issues
-- `make build-assets` completed successfully
-
-If Twig templates changed:
-- `./vendor/bin/twig-cs-fixer lint templates/` passes
-
-If documentation changed:
-- `make linter-docs` to validate RST syntax
-
-If translations changed:
-- all locales updated consistently; use English as placeholder if unsure
+Run targeted tests with `make tests ARGS=...` (keeps the deprecation baseline and cache reset; full guide in `tests/AGENTS.md`):
+```bash
+make tests                            # whole suite
+make tests ARGS="tests/Unit/Field/"   # one directory
+make tests ARGS="--filter=testFoo"    # one test
+```
+A bare `./vendor/bin/simple-phpunit` run skips the deprecation baseline (`tests/baseline-ignore.txt`) and the cache reset.
 
 ## Git and Pull Requests
 
@@ -116,23 +99,23 @@ If translations changed:
 - Bug fix: `fix_<issue number>` (e.g., `fix_123`)
 - Use lowercase with underscores
 
-### Before Creating a PR
-Run the full check suite:
-```bash
-make checks-before-pr
-```
-
 ## PHP Code Standards
 
-### Syntax and Style
-- PHP 8.1+ syntax with constructor property promotion
-- PSR-1, PSR-2, PSR-4, PSR-12 standards
-- Yoda conditions: `if (null === $value)` (project convention)
-- Strict comparisons only (`===`, `!==`)
-- Braces required for all control structures
-- Trailing commas in multi-line arrays
-- Blank line before `return` (unless only statement in block)
-- Don't add comments in classes as separators (e.g. `// === Methods for dashboards ===`)
+php-cs-fixer (`@Symfony` + `@Symfony:risky`) auto-formats most style — trailing commas, braces, strict comparisons, Yoda conditions, blank lines, quotes, etc. Run `make linter-cs-fixer` and let it handle formatting. The rules below are the conventions it does **not** enforce.
+
+### Conventions
+- PHP 8.2+ syntax with constructor property promotion
+- Don't add `declare(strict_types=1);` to PHP files
+- No service autowiring — configure explicitly in `config/services.php`
+- Use enums (`UpperCamelCase` case names) instead of constants for fixed sets of values
+- Prefer project constants (`Action::EDIT`, `EA::QUERY`) over hardcoded strings
+- Avoid `else`/`elseif` after `return`/`throw` — return/throw early instead
+- `return null;` for nullable, `return;` for void
+- Use `sprintf()` for exception messages with `get_debug_type()` for class names
+- Exception/error messages: start capital, end with a period, no backticks; concise but actionable (include class names, file paths)
+- Handle exceptions explicitly (no silent catches)
+- Comments: only for complex/unintuitive code, lowercase start, no period end; never as section separators (e.g. `// === Methods for dashboards ===`)
+- Config files in PHP format (`config/services.php`, `translations/*.php`)
 
 ### Naming
 - Variables/methods: `camelCase`
@@ -141,98 +124,49 @@ make checks-before-pr
 - Classes: `UpperCamelCase`
 - Abstract classes: `Abstract*` (except test cases)
 - Interfaces: `*Interface`, Traits: `*Trait`, Exceptions: `*Exception`
-- Most classes add a suffix showing its type:
+- Most classes add a suffix showing their type:
   `*Controller`, `*Configurator`, `*Context`, `*Dto`, `*Event`,
   `*Field`, `*Filter`, `*Subscriber`, `*Type`, `*Test`
 - Templates/assets: `snake_case` (e.g., `detail_page.html.twig`)
 
 ### Class Organization
 1. Properties before methods
-2. Constructor first, then `setUp()`/`tearDown()` in tests
-3. Method order: public, protected, private
-
-### Code Practices
-- Don't add `declare(strict_types=1);` to PHP files
-- Use enums (use `UpperCamelCase` for case names) instead of constants for fixed sets of values
-- Avoid `else`/`elseif` after return/throw
-- Use `sprintf()` for exception messages with `get_debug_type()` for class names
-- Exception messages: capital letter start, period end, no backticks
-- `return null;` for nullable, `return;` for void
-- Always use parentheses when instantiating: `new Foo()`
-- Add `void` return types on test methods
-- No service autowiring - configure explicitly in `config/services.php`
-- Comments: only for complex/unintuitive code, lowercase start, no period end
-- Error messages: concise but precise and actionable (e.g. include class names, file paths)
-- Handle exceptions explicitly (no silent catches)
-- Config files in PHP format (`config/services.php`, `translations/*.php`)
-- Prefer project constants (Action::EDIT, EA::QUERY) over hardcoded strings
+2. Constructor first, then public, protected, private methods in that order
 
 ### PHPDoc
-- No `@return` for void methods
 - No single-line docblocks
+- No `@return` for void methods
 - Group annotations by type
-- `null` last in union types
 
 ## Templates (Twig)
+
+twig-cs-fixer handles formatting (`make linter-twig`). Conventions it doesn't enforce:
 
 - Modern HTML5 and Twig syntax
 - Icons: FontAwesome 6.x names
 - All user-facing text via `|trans` filter (no hardcoded strings)
-- Translation logic in templates, not PHP (use `TranslatableInterface`)
-- Use components from `templates/components/` when available
+- Keep translation logic in templates, not PHP (use `TranslatableInterface`)
+- Reuse components from `templates/components/` when available — see `src/Twig/Component/AGENTS.md` before adding or changing a component
 - Accessibility: `aria-*` attributes, semantic tags, labels
 
 ## JavaScript
 
+biome handles formatting (`yarn ci`). Conventions it doesn't enforce:
+
 - ES6+ syntax
-- 4-space indentation
 - `camelCase` for variables and functions
 
 ## CSS
 
 - Standard CSS only (no SCSS/LESS)
-- 4-space indentation
-- Bootstrap 5.3 classes and utilities
-- Don't use nested rules
-- Logical properties: `margin-block-end` instead of `margin-bottom`
+- Don't use nested rules — keep selectors flat
 - `kebab-case` for class names
+- Bootstrap 5.3 classes and utilities
+- Logical properties: `margin-block-end` instead of `margin-bottom`
 - Responsive design required; use only these Bootstrap breakpoints:
   - Medium (md): ≥768px
   - Large (lg): ≥992px
   - Extra large (xl): ≥1200px
-
-## Testing
-
-### Test Structure
-- **Unit tests**: `tests/Unit/` - isolated component tests
-- **Functional tests**: `tests/Controller/`, `tests/Field/` - integration tests
-- **Test applications**: Real Symfony apps in `tests/TestApplication/`
-
-### Writing Tests
-- Extend `WebTestCase` for functional tests
-- Use simple names: 'Action 1', 'Field 1', not realistic data
-- Add `void` return type to all test methods
-- Name tests descriptively without `test` prefix duplication
-- Use `@testWith` and data providers when possible to avoid duplicated tests
-
-### Test Fixtures
-- Data fixtures in each functional app in `tests/Functional/Apps/`
-- Doctrine fixtures loaded via `DoctrineFixturesBundle`
-- Deprecation baseline: `tests/baseline-ignore.txt`
-
-## Anti-Patterns
-
-Avoid these common mistakes:
-
-- **Don't use service autowiring** - Configure explicitly in `config/services.php`
-- **Don't add typographic quotes** - Use straight quotes only (`'` and `"`)
-- **Don't hardcode user-facing text** - Always use translations with `|trans`
-- **Don't modify public interfaces lightly** - `Contracts/` contains stable API
-- **Don't use `else` after `return`/`throw`** - Return/throw early instead
-- **Don't use inline hyperlinks in docs** - Separate link text from URLs
-- **Don't use SCSS/LESS** - Standard CSS only
-- **Don't use nested CSS rules** - Keep selectors flat
-- **Don't skip pre-PR checks** - Run `make checks-before-pr` before every PR
 
 ## Documentation (doc/)
 

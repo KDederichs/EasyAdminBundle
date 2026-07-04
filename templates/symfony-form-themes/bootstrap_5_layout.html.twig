@@ -209,18 +209,37 @@
 {%- endblock submit_widget %}
 
 {%- block checkbox_widget -%}
-    {%- set attr = attr|merge({class: (attr.class|default('') ~ ' form-check-input')|trim}) -%}
     {%- set parent_label_class = parent_label_class|default(label_attr.class|default('')) -%}
-    {%- set row_class = 'form-check' -%}
-    {%- if 'checkbox-inline' in parent_label_class %}
-        {% set row_class = row_class ~ ' form-check-inline' %}
-    {% endif -%}
-    {%- if 'checkbox-switch' in parent_label_class %}
-        {% set row_class = row_class ~ ' form-switch' %}
-    {% endif -%}
-    <div class="{{ row_class }}">
-        {{- form_label(form, null, {widget: parent()}) -}}
-    </div>
+    {%- if 'checkbox-switch' in parent_label_class -%}
+        {# booleans rendered as switches use the <twig:ea:Switch> component instead
+           of a plain checkbox, so the index toggle and forms share the same markup #}
+        {%- set switch_variant = 'checkbox-switch-success' in parent_label_class ? 'success'
+            : ('checkbox-switch-warning' in parent_label_class ? 'warning'
+            : ('checkbox-switch-danger' in parent_label_class ? 'danger' : null)) -%}
+        {%- set switch_widget -%}
+            <twig:ea:Switch
+                id="{{ id }}"
+                name="{{ full_name }}"
+                value="{{ value }}"
+                checked="{{ checked ?? false }}"
+                disabled="{{ disabled ?? false }}"
+                required="{{ required ?? false }}"
+                variant="{{ switch_variant }}"
+            />
+        {%- endset -%}
+        <div class="form-check ea-switch-check">
+            {{- form_label(form, null, {widget: switch_widget}) -}}
+        </div>
+    {%- else -%}
+        {%- set attr = attr|merge({class: (attr.class|default('') ~ ' form-check-input')|trim}) -%}
+        {%- set row_class = 'form-check' -%}
+        {%- if 'checkbox-inline' in parent_label_class %}
+            {% set row_class = row_class ~ ' form-check-inline' %}
+        {% endif -%}
+        <div class="{{ row_class }}">
+            {{- form_label(form, null, {widget: parent()}) -}}
+        </div>
+    {%- endif -%}
 {%- endblock checkbox_widget %}
 
 {%- block radio_widget -%}

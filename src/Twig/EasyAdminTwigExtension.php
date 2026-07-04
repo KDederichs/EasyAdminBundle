@@ -46,6 +46,8 @@ class EasyAdminTwigExtension extends AbstractExtension implements GlobalsInterfa
             new TwigFilter('ea_filesize', [$this, 'fileSize']),
             new TwigFilter('ea_as_string', [$this, 'representAsString']),
             new TwigFilter('ea_html_attrs', [$this, 'processHtmlAttributes']),
+            new TwigFilter('ea_filetype_icon', [$this, 'getFiletypeIcon']),
+            new TwigFilter('ea_force_download', [$this, 'forceFileDownload']),
         ];
     }
 
@@ -104,20 +106,70 @@ class EasyAdminTwigExtension extends AbstractExtension implements GlobalsInterfa
         return $processed;
     }
 
+    public function getFiletypeIcon(string $filename): string
+    {
+        $extension = strtolower(pathinfo($filename, \PATHINFO_EXTENSION));
+
+        return match ($extension) {
+            'mp3', 'wav', 'ogg', 'flac', 'aac', 'wma', 'm4a', 'opus', 'aiff' => 'audio',
+            'mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm', 'm4v', 'mpeg', 'mpg' => 'video',
+            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'ico', 'tiff', 'tif', 'avif', 'heic', 'heif' => 'image',
+            'pdf' => 'pdf',
+            'doc', 'dot', 'docx', 'dotx', 'odt', 'rtf', 'txt' => 'document',
+            'xls', 'xlsx', 'xltx', 'xltm', 'ods', 'csv' => 'spreadsheet',
+            'ppt', 'pps', 'pot',  'pptx', 'potx', 'potm', 'odp', 'key' => 'presentation',
+            'htm', 'html', 'xhtml', 'js', 'ts', 'jsx', 'tsx', 'php', 'py', 'java', 'c', 'cpp', 'h', 'cs', 'rb', 'go', 'rs', 'swift', 'kt', 'sh', 'bash', 'json', 'xml', 'yaml', 'yml', 'toml', 'ini', 'sql', 'css', 'scss', 'less' => 'code',
+            'svg', 'ai', 'eps', 'svgz' => 'vector',
+            'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'tgz' => 'zip',
+            default => 'generic',
+        };
+    }
+
+    /**
+     * Returns true for uploaded files that browsers render inline and that can
+     * execute embedded scripts (e.g. HTML or SVG documents). EasyAdmin forces a
+     * download for these types instead of linking to them inline, to prevent a
+     * stored XSS when uploads are served from the same origin as the backend.
+     */
+    public function forceFileDownload(string $filename): bool
+    {
+        // checking the extension (and not the real MIME type) is enough and correct here:
+        // browsers and web servers decide whether to render a file inline based on the
+        // Content-Type derived from its extension, not from its actual contents. So the
+        // stored extension is exactly what determines the risk. Besides, the real MIME
+        // type was already resolved from the contents at upload time (via guessExtension())
+        // and reading the file again at render time would be costly and impossible for
+        // remote storage (e.g. Flysystem URLs).
+        $extension = strtolower(pathinfo($filename, \PATHINFO_EXTENSION));
+
+        return \in_array($extension, [
+            'htm', 'html', 'xhtml', 'xht', 'shtml', 'shtm', 'mhtml', 'mht',
+            'svg', 'svgz',
+            'xml', 'xsl', 'xslt',
+        ], true);
+    }
+
     public function fileSize(int $bytes): string
     {
-        $size = ['B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
+        $size = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
 
         if (0 === $bytes) {
-            return '0B';
+            return '0 B';
         }
 
         $factor = (int) floor(log($bytes) / log(1024));
         $factor = min($factor, \count($size) - 1);
 
-        $scaledValue = (int) ($bytes / (1024 ** $factor));
+        $scaledValue = $bytes / (1024 ** $factor);
 
-        return sprintf('%d%s', $scaledValue, $size[$factor]);
+        if (0 === $factor) {
+            return sprintf('%d %s', $scaledValue, $size[$factor]);
+        }
+
+        $scaledValue = round($scaledValue, 1);
+        $format = 0.0 === fmod($scaledValue, 1.0) ? '%d %s' : '%.1f %s';
+
+        return sprintf($format, $scaledValue, $size[$factor]);
     }
 
     public function representAsString(mixed $value, string|callable|null $toStringMethod = null): string

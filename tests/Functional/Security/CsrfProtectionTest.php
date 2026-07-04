@@ -205,7 +205,7 @@ class CsrfProtectionTest extends AbstractCrudTestCase
         }
 
         $crawler = $this->client->request('GET', $this->generateIndexUrl());
-        $firstFoundToggleUrl = $crawler->filter('td.field-boolean .form-switch input[type="checkbox"]')->first()->attr('data-toggle-url');
+        $firstFoundToggleUrl = $crawler->filter('td.field-boolean .ea-switch input[type="checkbox"]')->first()->attr('data-toggle-url');
 
         parse_str(parse_url($firstFoundToggleUrl, \PHP_URL_QUERY), $parameters);
         // with pretty URLs, entityId is in the URL path (e.g., /admin/category/123/edit)

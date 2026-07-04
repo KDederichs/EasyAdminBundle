@@ -319,6 +319,20 @@ Permissions are defined globally; you cannot define different permissions per pa
         ;
     }
 
+When restricting several actions, you can also use the ``setPermissions()``
+method and pass all the permissions at once::
+
+    public function configureActions(Actions $actions): Actions
+    {
+        return $actions
+            // ...
+            ->setPermissions([
+                Action::NEW => 'ROLE_ADMIN',
+                Action::DELETE => 'ROLE_SUPER_ADMIN',
+            ])
+        ;
+    }
+
 Reordering Actions
 ------------------
 
@@ -658,6 +672,7 @@ The following example shows all kinds of actions in practice::
 
     use App\Entity\Invoice;
     use App\Entity\Order;
+    use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
     use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
     use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
     use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
@@ -703,13 +718,33 @@ The following example shows all kinds of actions in practice::
             ;
         }
 
-        public function renderInvoice(AdminContext $context)
+        #[AdminRoute('/{id}/invoice')]
+        public function renderInvoice(Order $order): Response
         {
-            $order = $context->getEntity()->getInstance();
-
-            // add your logic here...
+            // add your custom order logic here...
         }
     }
+
+Apply the ``#[AdminRoute]`` attribute to turn CRUD controller methods into custom
+CRUD actions with their own admin routes. In the above example, if the dashboard
+uses ``admin`` as the main route name, EasyAdmin generates a route named
+``admin_order_render_invoice`` with the path ``/admin/order/{id}/invoice``.
+You can :ref:`customize the name, path, and methods <crud_routes>` of this route.
+
+The placeholder that identifies the current entity in EasyAdmin routes is called
+``{entityId}``, but you can also use ``{id}`` as an alias of it. Both work the
+same but ``{id}`` provides a nicer integration with Symfony: since the placeholder
+name matches the identifier property of most entities, Symfony's ``EntityValueResolver``
+can inject the entity as a typed controller argument (the ``Order $order`` argument
+in the above example) without any extra configuration.
+
+.. note::
+
+    If your application doesn't enable the ``controller_resolver.auto_mapping``
+    option of DoctrineBundle, add the ``#[MapEntity]`` attribute to the controller
+    argument (``#[MapEntity] Order $order``) to inject the entity. When using the
+    ``{entityId}`` placeholder instead of ``{id}``, you must always use the explicit
+    `mapped route parameters`_ syntax: ``#[AdminRoute('/{entityId:order.id}/invoice')]``.
 
 .. tip::
 
@@ -717,41 +752,6 @@ The following example shows all kinds of actions in practice::
     When actions are defined as methods of CRUD controllers, they can use any
     of the shortcuts and utilities available in regular `Symfony controllers`_,
     such as ``$this->render()``, ``$this->redirect()``, and others.
-
-It's recommended to apply the ``#[AdminRoute]`` attribute to your custom actions
-to :ref:`customize their route name, path and methods <crud_routes>`. This is
-recommended even for custom actions defined as methods in the CRUD controllers::
-
-    namespace App\Controller\Admin;
-
-    use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
-    use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
-    use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
-    use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
-
-    class OrderCrudController extends AbstractCrudController
-    {
-        public function configureActions(Actions $actions): Actions
-        {
-            $viewInvoice = Action::new('viewInvoice', 'Invoice', 'fa fa-file-invoice')
-                ->linkToCrudAction('renderInvoice');
-
-            // ...
-        }
-
-        // ...
-
-        #[AdminRoute(path: '/invoice', name: 'view_invoice')]
-        public function renderInvoice(AdminContext $context)
-        {
-            // if the dashboard uses 'admin' as the main route name, the resulting
-            // route of this action will be:
-            //   path: /admin/order/invoice
-            //   name: admin_order_view_invoice
-
-            // ...
-        }
-    }
 
 .. _global-actions:
 
@@ -963,7 +963,6 @@ for the actions using the ``#[AdminRoute]`` attribute::
     use App\Stats\BusinessStatsCalculator;
     use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
     use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-    use Symfony\Component\Routing\Attribute\Route;
     use Symfony\Component\Security\Http\Attribute\IsGranted;
 
     #[IsGranted('ROLE_ADMIN')]
@@ -1161,6 +1160,7 @@ backends. Instead of defining it repeatedly, you can create a reusable package
     }
 
 .. _`FontAwesome`: https://fontawesome.com/
+.. _`mapped route parameters`: https://symfony.com/doc/current/doctrine.html#fetch-automatically
 .. _`Symfony base controller class`: https://symfony.com/doc/current/controller.html#the-base-controller-class-services
 .. _`Symfony controllers`: https://symfony.com/doc/current/controller.html
 .. _`Symfony bundle`: https://symfony.com/doc/current/bundles.html

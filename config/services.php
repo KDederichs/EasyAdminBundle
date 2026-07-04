@@ -37,12 +37,14 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\AvatarConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\BooleanConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\ChoiceConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\CollectionConfigurator;
+use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\ColorConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\CommonPostConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\CommonPreConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\CountryConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\CurrencyConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\DateTimeConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\EmailConfigurator;
+use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\FileConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\FormConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\IdConfigurator;
 use EasyCorp\Bundle\EasyAdminBundle\Field\Configurator\ImageConfigurator;
@@ -94,6 +96,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Security\AuthorizationChecker;
 use EasyCorp\Bundle\EasyAdminBundle\Security\SecurityVoter;
 use EasyCorp\Bundle\EasyAdminBundle\Translation\EntityTranslationIdGenerator;
 use EasyCorp\Bundle\EasyAdminBundle\Twig\Component\Alert;
+use EasyCorp\Bundle\EasyAdminBundle\Twig\Component\Badge;
 use EasyCorp\Bundle\EasyAdminBundle\Twig\Component\Flag;
 use EasyCorp\Bundle\EasyAdminBundle\Twig\Component\Icon;
 use EasyCorp\Bundle\EasyAdminBundle\Twig\EasyAdminTwigExtension;
@@ -318,6 +321,7 @@ return static function (ContainerConfigurator $container) {
         ->set(ChoiceFilterConfigurator::class)
 
         ->set(CommonFilterConfigurator::class)
+            ->arg(0, service(EntityTranslationIdGeneratorInterface::class))
             ->tag(EasyAdminExtension::TAG_FILTER_CONFIGURATOR, ['priority' => 9999])
 
         ->set(ComparisonFilterConfigurator::class)
@@ -372,7 +376,10 @@ return static function (ContainerConfigurator $container) {
             ->arg(2, service('request_stack'))
             ->arg(3, service(ControllerFactory::class))
             ->arg(4, new Reference(FieldFactory::class))
-            ->arg(5, service(EntityRepository::class))
+            ->arg(5, new Reference(AuthorizationChecker::class))
+            ->arg(6, service(AdminContextFactory::class))
+            ->arg(7, service(EntityRepository::class))
+            ->tag('kernel.reset', ['method' => 'reset'])
 
         ->set(AvatarConfigurator::class)
 
@@ -406,8 +413,13 @@ return static function (ContainerConfigurator $container) {
 
         ->set(IdConfigurator::class)
 
+        ->set(FileConfigurator::class)
+            ->arg(0, param('kernel.project_dir'))
+            ->arg(1, tagged_locator('flysystem.storage', 'storage'))
+
         ->set(ImageConfigurator::class)
             ->arg(0, param('kernel.project_dir'))
+            ->arg(1, tagged_locator('flysystem.storage', 'storage'))
 
         ->set(IntegerConfigurator::class)
 
@@ -426,6 +438,8 @@ return static function (ContainerConfigurator $container) {
             ->arg(0, service(IntlFormatter::class))
 
         ->set(ChoiceConfigurator::class)
+
+        ->set(ColorConfigurator::class)
 
         ->set(CollectionConfigurator::class)
             ->arg(0, service('request_stack'))
@@ -461,6 +475,9 @@ return static function (ContainerConfigurator $container) {
             ->tag('twig.component')
 
         ->set(Alert::class)
+            ->tag('twig.component')
+
+        ->set(Badge::class)
             ->tag('twig.component')
     ;
 };

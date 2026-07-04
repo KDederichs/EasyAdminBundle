@@ -33,7 +33,26 @@ class EmailFieldTest extends AbstractFieldFunctionalTest
         $entityRow = $crawler->filter(sprintf('tr[data-id="%d"]', $entity->getId()));
         $emailLink = $entityRow->filter('td[data-column="emailField"] a[href^="mailto:"]');
         static::assertCount(1, $emailLink, 'Email field should render as mailto link');
-        static::assertSame('mailto:contact@example.com', $emailLink->attr('href'));
+        static::assertSame('mailto:contact%40example.com', $emailLink->attr('href'));
+    }
+
+    public function testEmailFieldEncodesSchemeInjectionPayload(): void
+    {
+        $payload = 'victim@example.com?subject=URGENT&body=click';
+        $entity = $this->createFieldTestEntity([
+            'emailField' => $payload,
+        ]);
+
+        $crawler = $this->client->request('GET', $this->generateIndexUrlSortedByIdDesc());
+
+        $entityRow = $crawler->filter(sprintf('tr[data-id="%d"]', $entity->getId()));
+        $emailLink = $entityRow->filter('td[data-column="emailField"] a[href^="mailto:"]');
+        static::assertCount(1, $emailLink, 'Email field should render as mailto link');
+
+        $href = $emailLink->attr('href');
+        static::assertStringNotContainsString('?', $href, 'Raw "?" must not leak into href');
+        static::assertStringNotContainsString('&', $href, 'Raw "&" must not leak into href');
+        static::assertSame('mailto:'.rawurlencode($payload), $href);
     }
 
     public function testEmailFieldDisplaysOnDetail(): void

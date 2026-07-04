@@ -71,6 +71,18 @@ class CurrencyFieldTest extends AbstractFieldTest
         $this->configure($field);
     }
 
+    public function testFieldWithNoCurrency(): void
+    {
+        $field = CurrencyField::new('currency');
+        $field->setValue(CurrencyField::CURRENCY_NONE);
+        $fieldDto = $this->configure($field);
+
+        self::assertSame('XXX', $fieldDto->getValue());
+        self::assertIsArray($fieldDto->getFormattedValue());
+        self::assertSame('¤', $fieldDto->getFormattedValue()['name']);
+        self::assertSame('¤', $fieldDto->getFormattedValue()['symbol']);
+    }
+
     public function testShowCode(): void
     {
         $field = CurrencyField::new('currency');

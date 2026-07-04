@@ -90,16 +90,41 @@ readonly class AdminRouterSubscriber implements EventSubscriberInterface
             } catch (BaseException $e) {
                 // if context creation fails (e.g. entity not found), create a context
                 // without the entity so the ExceptionListener can still render the
-                // EasyAdmin error page with the proper layout
-                $entityId = $request->attributes->get(EA::ENTITY_ID) ?? $request->query->get(EA::ENTITY_ID);
+                // EasyAdmin error page with the proper layout. To prevent the entity from
+                // being loaded again, the entity ID must be removed from everywhere it can be
+                // read from: the canonical 'entityId' attribute, its 'id' alias, and the matched
+                // '_route_params' (used for mapped route placeholders). Only the values that
+                // originally existed are restored afterwards, so the exception message stays accurate
+                // and no attribute that wasn't present before is introduced.
+                $hadEntityIdAttribute = $request->attributes->has(EA::ENTITY_ID);
+                $hadIdAttribute = $request->attributes->has('id');
+                $hadRouteParams = $request->attributes->has('_route_params');
+                $entityIdAttribute = $request->attributes->get(EA::ENTITY_ID);
+                $idAttribute = $request->attributes->get('id');
+                $routeParams = $request->attributes->get('_route_params', []);
+
                 $request->attributes->remove(EA::ENTITY_ID);
+                $request->attributes->remove('id');
                 $request->query->remove(EA::ENTITY_ID);
+                if ($hadRouteParams) {
+                    $cleanedRouteParams = $routeParams;
+                    unset($cleanedRouteParams[EA::ENTITY_ID], $cleanedRouteParams['id']);
+                    $request->attributes->set('_route_params', $cleanedRouteParams);
+                }
 
                 $adminContext = $this->adminContextFactory->create($request, $dashboardControllerInstance, $crudControllerInstance, $actionName);
                 $request->attributes->set(EA::CONTEXT_REQUEST_ATTRIBUTE, $adminContext);
 
-                // restore the entity ID so the exception message is accurate
-                $request->attributes->set(EA::ENTITY_ID, $entityId);
+                // restore the original request data so the exception message is accurate
+                if ($hadEntityIdAttribute) {
+                    $request->attributes->set(EA::ENTITY_ID, $entityIdAttribute);
+                }
+                if ($hadIdAttribute) {
+                    $request->attributes->set('id', $idAttribute);
+                }
+                if ($hadRouteParams) {
+                    $request->attributes->set('_route_params', $routeParams);
+                }
 
                 throw $e;
             }
