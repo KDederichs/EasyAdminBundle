@@ -7,6 +7,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use Doctrine\Persistence\ObjectManager;
 use Doctrine\Persistence\Proxy;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\EntityCollection;
+use EasyCorp\Bundle\EasyAdminBundle\Contracts\Factory\EntityFactoryInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
 use EasyCorp\Bundle\EasyAdminBundle\Event\AfterEntityBuiltEvent;
 use EasyCorp\Bundle\EasyAdminBundle\Exception\EntityNotFoundException;
@@ -18,7 +19,7 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 /**
  * @author Javier Eguiluz <javier.eguiluz@gmail.com>
  */
-final readonly class EntityFactory
+final readonly class EntityFactory implements EntityFactoryInterface
 {
     public function __construct(
         private AuthorizationCheckerInterface $authorizationChecker,

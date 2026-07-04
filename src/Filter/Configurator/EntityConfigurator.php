@@ -5,12 +5,12 @@ namespace EasyCorp\Bundle\EasyAdminBundle\Filter\Configurator;
 use Doctrine\ORM\Mapping\JoinColumnMapping;
 use EasyCorp\Bundle\EasyAdminBundle\Context\AdminContext;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Filter\FilterConfiguratorInterface;
+use EasyCorp\Bundle\EasyAdminBundle\Contracts\Orm\EntityRepositoryInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\FieldDto;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\FilterDto;
 use EasyCorp\Bundle\EasyAdminBundle\Filter\EntityFilter;
 use EasyCorp\Bundle\EasyAdminBundle\Form\Type\CrudAutocompleteType;
-use EasyCorp\Bundle\EasyAdminBundle\Orm\EntityRepository;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGeneratorInterface;
 
 /**
@@ -21,7 +21,7 @@ final class EntityConfigurator implements FilterConfiguratorInterface
 {
     public function __construct(
         private AdminUrlGeneratorInterface $adminUrlGenerator,
-        private EntityRepository $entityRepository,
+        private EntityRepositoryInterface $entityRepository,
     ) {
     }
 

@@ -8,6 +8,7 @@ use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FieldCollection;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FilterCollection;
+use EasyCorp\Bundle\EasyAdminBundle\Contracts\Factory\EntityFactoryInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Provider\AdminContextProviderInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\SearchDto;
@@ -24,6 +25,7 @@ class EntityRepositoryTest extends TestCase
     private ManagerRegistry $doctrine;
     private EventDispatcherInterface $eventDispatcher;
     private EntityRepository $entityRepository;
+    private EntityFactoryInterface $entityFactory;
 
     protected function setUp(): void
     {
@@ -33,13 +35,13 @@ class EntityRepositoryTest extends TestCase
 
         // use reflection to create EntityRepository without needing to mock final classes
         // entityFactory and FormFactory are only used in specific scenarios
-        $entityFactory = $this->createEntityFactoryStub();
+        $this->entityFactory = $this->createMock(EntityFactoryInterface::class);
         $formFactory = $this->createFormFactoryStub();
 
         $this->entityRepository = new EntityRepository(
             $this->adminContextProvider,
             $this->doctrine,
-            $entityFactory,
+            $this->entityFactory,
             $formFactory,
             $this->eventDispatcher
         );
@@ -225,6 +227,108 @@ class EntityRepositoryTest extends TestCase
         $this->assertSame($queryBuilder, $result);
     }
 
+    public function testResolveNestedAssociationsWithSimpleProperty(): void
+    {
+        $rootEntityDto = $this->createEntityDto('App\Entity\Post', ['title' => ['type' => 'string']], []);
+
+        $resolved = $this->entityRepository->resolveNestedAssociations(null, $rootEntityDto, 'title');
+
+        self::assertSame($rootEntityDto, $resolved['entity_dto']);
+        self::assertSame('entity', $resolved['entity_alias']);
+        self::assertSame('title', $resolved['property_name']);
+    }
+
+    public function testResolveNestedAssociationsWithNestedProperty(): void
+    {
+        $authorEntityDto = $this->createEntityDto('App\Entity\User', ['name' => ['type' => 'string']], []);
+        $rootEntityDto = $this->createEntityDto('App\Entity\Post', [], ['author' => 'App\Entity\User']);
+
+        $this->entityFactory->expects(self::once())
+            ->method('create')
+            ->with('App\Entity\User')
+            ->willReturn($authorEntityDto);
+
+        $queryBuilder = $this->createMock(QueryBuilder::class);
+        $queryBuilder->expects(self::once())
+            ->method('leftJoin')
+            ->with('entity.author', 'author');
+
+        $resolved = $this->entityRepository->resolveNestedAssociations($queryBuilder, $rootEntityDto, 'author.name');
+
+        self::assertSame($authorEntityDto, $resolved['entity_dto']);
+        self::assertSame('author', $resolved['entity_alias']);
+        self::assertSame('name', $resolved['property_name']);
+    }
+
+    public function testResolveNestedAssociationsEndingWithAssociation(): void
+    {
+        $categoryEntityDto = $this->createEntityDto('App\Entity\Category', [], ['parent' => 'App\Entity\Category']);
+        $rootEntityDto = $this->createEntityDto('App\Entity\Post', [], ['category' => 'App\Entity\Category']);
+
+        $this->entityFactory->expects(self::once())
+            ->method('create')
+            ->with('App\Entity\Category')
+            ->willReturn($categoryEntityDto);
+
+        $queryBuilder = $this->createMock(QueryBuilder::class);
+        $queryBuilder->expects(self::once())
+            ->method('leftJoin')
+            ->with('entity.category', 'category');
+
+        $resolved = $this->entityRepository->resolveNestedAssociations(
+            $queryBuilder,
+            $rootEntityDto,
+            'category.parent',
+            true
+        );
+
+        self::assertSame($categoryEntityDto, $resolved['entity_dto']);
+        self::assertSame('category', $resolved['entity_alias']);
+        self::assertSame('parent', $resolved['property_name']);
+    }
+
+    public function testResolveNestedAssociationsDoesNotDuplicateJoins(): void
+    {
+        $authorEntityDto = $this->createEntityDto('App\Entity\User', ['name' => ['type' => 'string']], []);
+        $rootEntityDto = $this->createEntityDto('App\Entity\Post', [], ['author' => 'App\Entity\User']);
+
+        $this->entityFactory->method('create')->willReturn($authorEntityDto);
+
+        $queryBuilder = $this->createMock(QueryBuilder::class);
+        $queryBuilder->expects(self::once())->method('leftJoin');
+
+        $this->entityRepository->resolveNestedAssociations($queryBuilder, $rootEntityDto, 'author.name');
+        $this->entityRepository->resolveNestedAssociations($queryBuilder, $rootEntityDto, 'author.name');
+    }
+
+    public function testResolveNestedAssociationsThrowsOnInvalidProperty(): void
+    {
+        $rootEntityDto = $this->createEntityDto('App\Entity\Post', ['title' => ['type' => 'string']], []);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('The "invalid" property is not valid');
+
+        $this->entityRepository->resolveNestedAssociations(null, $rootEntityDto, 'invalid');
+    }
+
+    private function createEntityDto(string $fqcn = 'App\Entity\Product', array $fieldMappings = [], array $associations = []): EntityDto
+    {
+        $classMetadata = $this->createMock(ClassMetadata::class);
+        $classMetadata->fieldMappings = $fieldMappings;
+        $classMetadata->method('getFieldNames')->willReturn(array_keys($fieldMappings));
+        $classMetadata->method('getFieldMapping')->willReturnCallback(
+            static fn (string $name): array => $fieldMappings[$name] ?? throw new \InvalidArgumentException()
+        );
+        $classMetadata->method('hasAssociation')->willReturnCallback(
+            static fn (string $name): bool => isset($associations[$name])
+        );
+        $classMetadata->method('getAssociationTargetClass')->willReturnCallback(
+            static fn (string $name): string => $associations[$name] ?? throw new \InvalidArgumentException()
+        );
+
+        return new EntityDto($fqcn, $classMetadata);
+    }
+
     private function createSearchDto(string $query = '', array $sort = [], ?array $appliedFilters = []): SearchDto
     {
         return new SearchDto(
@@ -235,26 +339,6 @@ class EntityRepositoryTest extends TestCase
             [], // customSort
             $appliedFilters
         );
-    }
-
-    private function createEntityDto(): EntityDto
-    {
-        $metadata = $this->createMock(ClassMetadata::class);
-        $metadata->method('getSingleIdentifierFieldName')->willReturn('id');
-        $metadata->method('hasAssociation')->willReturn(false);
-        $metadata->method('getFieldNames')->willReturn([]);
-        $metadata->fieldMappings = [];
-
-        return new EntityDto('App\Entity\Product', $metadata);
-    }
-
-    /**
-     * Creates a stub for EntityFactory using reflection since it's a final class.
-     */
-    private function createEntityFactoryStub(): EntityFactory
-    {
-        return (new \ReflectionClass(EntityFactory::class))
-            ->newInstanceWithoutConstructor();
     }
 
     /**

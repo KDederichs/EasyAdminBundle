@@ -5,20 +5,19 @@ namespace EasyCorp\Bundle\EasyAdminBundle\Orm;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
-use Doctrine\ORM\Mapping\FieldMapping;
 use Doctrine\ORM\Query\Expr\Orx;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FieldCollection;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FilterCollection;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Option\SearchMode;
+use EasyCorp\Bundle\EasyAdminBundle\Contracts\Factory\EntityFactoryInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Orm\EntityRepositoryInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Contracts\Provider\AdminContextProviderInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\FilterDataDto;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\SearchDto;
 use EasyCorp\Bundle\EasyAdminBundle\Event\AfterEntitySearchEvent;
-use EasyCorp\Bundle\EasyAdminBundle\Factory\EntityFactory;
 use EasyCorp\Bundle\EasyAdminBundle\Factory\FormFactory;
 use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
 use EasyCorp\Bundle\EasyAdminBundle\Filter\EntityFilter;
@@ -39,7 +38,7 @@ final class EntityRepository implements EntityRepositoryInterface
     public function __construct(
         private readonly AdminContextProviderInterface $adminContextProvider,
         private readonly ManagerRegistry $doctrine,
-        private readonly EntityFactory $entityFactory,
+        private readonly EntityFactoryInterface $entityFactory,
         private readonly FormFactory $formFactory,
         private readonly EventDispatcherInterface $eventDispatcher,
     ) {
