@@ -228,7 +228,7 @@ class EntityRepositoryTest extends TestCase
 
     public function testCustomSortByExposedSortableFieldIsApplied(): void
     {
-        $entityDto = $this->createEntityDto(['displayedField']);
+        $entityDto = $this->createEntityDto(['displayedField' => ['type' => 'string']]);
         $fields = new FieldCollection([$this->createField('displayedField', true)]);
         $searchDto = $this->createSearchDtoForSort(customSort: ['displayedField' => 'ASC']);
 
@@ -246,7 +246,7 @@ class EntityRepositoryTest extends TestCase
     {
         // simulates ?sort[hiddenField]=ASC against a controller whose
         // configureFields(INDEX) doesn't expose `hiddenField`
-        $entityDto = $this->createEntityDto(['hiddenField']);
+        $entityDto = $this->createEntityDto(['hiddenField' => ['type' => 'string']]);
         $fields = new FieldCollection([]);
         $searchDto = $this->createSearchDtoForSort(customSort: ['hiddenField' => 'ASC']);
 
@@ -260,7 +260,7 @@ class EntityRepositoryTest extends TestCase
 
     public function testCustomSortByExplicitlyNonSortableFieldIsIgnored(): void
     {
-        $entityDto = $this->createEntityDto(['displayedField']);
+        $entityDto = $this->createEntityDto(['displayedField' => ['type' => 'string']]);
         $fields = new FieldCollection([$this->createField('displayedField', false)]);
         $searchDto = $this->createSearchDtoForSort(customSort: ['displayedField' => 'ASC']);
 
@@ -275,7 +275,7 @@ class EntityRepositoryTest extends TestCase
     public function testCustomSortKeyContainingCommaIsIgnored(): void
     {
         // ?sort[name,entity.email]=ASC — comma would smuggle an extra ORDER BY column
-        $entityDto = $this->createEntityDto(['displayedField']);
+        $entityDto = $this->createEntityDto(['displayedField' => ['type' => 'string']]);
         $fields = new FieldCollection([$this->createField('displayedField', true)]);
         $searchDto = $this->createSearchDtoForSort(customSort: ['displayedField,entity.hiddenField' => 'ASC']);
 
@@ -292,7 +292,7 @@ class EntityRepositoryTest extends TestCase
         // ?sort[customer.secretField]=ASC — multi-segment keys reach the unfiltered
         // multi-segment branch of applyOrderClause; URL-based association sort is
         // supported via single-segment keys + AssociationField::setSortProperty()
-        $entityDto = $this->createEntityDto([], ['customer']);
+        $entityDto = $this->createEntityDto([], ['customer' => 'App\Entity\Customer']);
         $fields = new FieldCollection([$this->createField('customer', true)]);
         $searchDto = $this->createSearchDtoForSort(customSort: ['customer.secretField' => 'ASC']);
 
@@ -310,7 +310,7 @@ class EntityRepositoryTest extends TestCase
         // ?sort[displayedField]=ASC,%20entity.hiddenField%20DESC — Expr\OrderBy
         // concatenates "$property $direction", so an unvalidated direction smuggles
         // a second OrderByItem that the DQL parser happily accepts
-        $entityDto = $this->createEntityDto(['displayedField']);
+        $entityDto = $this->createEntityDto(['displayedField' => ['type' => 'string']]);
         $fields = new FieldCollection([$this->createField('displayedField', true)]);
         $searchDto = $this->createSearchDtoForSort(customSort: ['displayedField' => 'ASC, entity.hiddenField DESC']);
 
@@ -326,7 +326,7 @@ class EntityRepositoryTest extends TestCase
     {
         // ?sort[hiddenField]=ASC must not suppress setDefaultSort(['hiddenField' => 'DESC']):
         // the customSort entry is rejected, the defaultSort entry still applies
-        $entityDto = $this->createEntityDto(['hiddenField']);
+        $entityDto = $this->createEntityDto(['hiddenField' => ['type' => 'string']]);
         $fields = new FieldCollection([]);
         $searchDto = $this->createSearchDtoForSort(
             customSort: ['hiddenField' => 'ASC'],
@@ -346,7 +346,7 @@ class EntityRepositoryTest extends TestCase
     public function testDefaultSortByFieldAbsentFromFieldCollectionIsStillApplied(): void
     {
         // developer-supplied default sort is trusted unconditionally
-        $entityDto = $this->createEntityDto(['createdAt']);
+        $entityDto = $this->createEntityDto(['createdAt' => ['type' => 'date_time']]);
         $fields = new FieldCollection([]);
         $searchDto = $this->createSearchDtoForSort(defaultSort: ['createdAt' => 'DESC']);
 
@@ -362,7 +362,7 @@ class EntityRepositoryTest extends TestCase
 
     public function testValidCustomSortOverridesDefaultSortForSameKey(): void
     {
-        $entityDto = $this->createEntityDto(['displayedField']);
+        $entityDto = $this->createEntityDto(['displayedField' => ['type' => 'string']]);
         $fields = new FieldCollection([$this->createField('displayedField', true)]);
         $searchDto = $this->createSearchDtoForSort(
             customSort: ['displayedField' => 'ASC'],
@@ -486,22 +486,20 @@ class EntityRepositoryTest extends TestCase
 
     private function createEntityDto(array $mappedFields = [], array $mappedAssociations = [], string $fqcn = 'App\Entity\Product'): EntityDto
     {
-        $classMetadata = $this->createMock(ClassMetadata::class);
-        $classMetadata->fieldMappings = $mappedFields;
-        $classMetadata->method('getSingleIdentifierFieldName')->willReturn('id');
-        $classMetadata->method('hasField')->willReturnCallback(static fn (string $name): bool => \in_array($name, $mappedFields, true));
-        $classMetadata->method('getFieldNames')->willReturn(array_keys($mappedFields));
-        $classMetadata->method('getFieldMapping')->willReturnCallback(
+        $metadata = $this->createMock(ClassMetadata::class);
+        $metadata->method('getSingleIdentifierFieldName')->willReturn('id');
+        $metadata->method('hasField')->willReturnCallback(static fn (string $name): bool => isset($mappedFields[$name]));
+        $metadata->method('hasAssociation')->willReturnCallback(static fn (string $name): bool => isset($mappedAssociations[$name]));
+        $metadata->method('getFieldNames')->willReturn(array_keys($mappedFields));
+        $metadata->method('getFieldMapping')->willReturnCallback(
             static fn (string $name): array => $mappedFields[$name] ?? throw new \InvalidArgumentException()
         );
-        $classMetadata->method('hasAssociation')->willReturnCallback(
-            static fn (string $name): bool => isset($mappedAssociations[$name])
-        );
-        $classMetadata->method('getAssociationTargetClass')->willReturnCallback(
+        $metadata->method('getAssociationTargetClass')->willReturnCallback(
             static fn (string $name): string => $mappedAssociations[$name] ?? throw new \InvalidArgumentException()
         );
+        $metadata->fieldMappings = $mappedFields;
 
-        return new EntityDto($fqcn, $classMetadata);
+        return new EntityDto($fqcn, $metadata);
     }
 
     private function createField(string $property, bool $sortable): FieldInterface
@@ -531,15 +529,6 @@ class EntityRepositoryTest extends TestCase
         $entityManager = $this->createMock(EntityManagerInterface::class);
         $entityManager->method('createQueryBuilder')->willReturn($queryBuilder);
         $this->doctrine->method('getManagerForClass')->willReturn($entityManager);
-    }
-
-    /**
-     * Creates a stub for EntityFactory using reflection since it's a final class.
-     */
-    private function createEntityFactoryStub(): EntityFactory
-    {
-        return (new \ReflectionClass(EntityFactory::class))
-            ->newInstanceWithoutConstructor();
     }
 
     /**
