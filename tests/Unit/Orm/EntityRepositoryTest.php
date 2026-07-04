@@ -34,9 +34,6 @@ class EntityRepositoryTest extends TestCase
         $this->adminContextProvider = $this->createMock(AdminContextProviderInterface::class);
         $this->doctrine = $this->createMock(ManagerRegistry::class);
         $this->eventDispatcher = $this->createMock(EventDispatcherInterface::class);
-
-        // use reflection to create EntityRepository without needing to mock final classes
-        // entityFactory and FormFactory are only used in specific scenarios
         $this->entityFactory = $this->createMock(EntityFactoryInterface::class);
         $formFactory = $this->createFormFactoryStub();
 
@@ -231,7 +228,7 @@ class EntityRepositoryTest extends TestCase
 
     public function testCustomSortByExposedSortableFieldIsApplied(): void
     {
-        $entityDto = $this->createEntityDto('App\Entity\Product', ['displayedField']);
+        $entityDto = $this->createEntityDto(['displayedField']);
         $fields = new FieldCollection([$this->createField('displayedField', true)]);
         $searchDto = $this->createSearchDtoForSort(customSort: ['displayedField' => 'ASC']);
 
@@ -249,7 +246,7 @@ class EntityRepositoryTest extends TestCase
     {
         // simulates ?sort[hiddenField]=ASC against a controller whose
         // configureFields(INDEX) doesn't expose `hiddenField`
-        $entityDto = $this->createEntityDto('App\Entity\Product', ['hiddenField']);
+        $entityDto = $this->createEntityDto(['hiddenField']);
         $fields = new FieldCollection([]);
         $searchDto = $this->createSearchDtoForSort(customSort: ['hiddenField' => 'ASC']);
 
@@ -263,7 +260,7 @@ class EntityRepositoryTest extends TestCase
 
     public function testCustomSortByExplicitlyNonSortableFieldIsIgnored(): void
     {
-        $entityDto = $this->createEntityDto('App\Entity\Product', ['displayedField']);
+        $entityDto = $this->createEntityDto(['displayedField']);
         $fields = new FieldCollection([$this->createField('displayedField', false)]);
         $searchDto = $this->createSearchDtoForSort(customSort: ['displayedField' => 'ASC']);
 
@@ -278,7 +275,7 @@ class EntityRepositoryTest extends TestCase
     public function testCustomSortKeyContainingCommaIsIgnored(): void
     {
         // ?sort[name,entity.email]=ASC — comma would smuggle an extra ORDER BY column
-        $entityDto = $this->createEntityDto('App\Entity\Product', ['displayedField']);
+        $entityDto = $this->createEntityDto(['displayedField']);
         $fields = new FieldCollection([$this->createField('displayedField', true)]);
         $searchDto = $this->createSearchDtoForSort(customSort: ['displayedField,entity.hiddenField' => 'ASC']);
 
@@ -295,7 +292,7 @@ class EntityRepositoryTest extends TestCase
         // ?sort[customer.secretField]=ASC — multi-segment keys reach the unfiltered
         // multi-segment branch of applyOrderClause; URL-based association sort is
         // supported via single-segment keys + AssociationField::setSortProperty()
-        $entityDto = $this->createEntityDto('App\Entity\Product', [], ['customer']);
+        $entityDto = $this->createEntityDto([], ['customer']);
         $fields = new FieldCollection([$this->createField('customer', true)]);
         $searchDto = $this->createSearchDtoForSort(customSort: ['customer.secretField' => 'ASC']);
 
@@ -313,7 +310,7 @@ class EntityRepositoryTest extends TestCase
         // ?sort[displayedField]=ASC,%20entity.hiddenField%20DESC — Expr\OrderBy
         // concatenates "$property $direction", so an unvalidated direction smuggles
         // a second OrderByItem that the DQL parser happily accepts
-        $entityDto = $this->createEntityDto('App\Entity\Product', ['displayedField']);
+        $entityDto = $this->createEntityDto(['displayedField']);
         $fields = new FieldCollection([$this->createField('displayedField', true)]);
         $searchDto = $this->createSearchDtoForSort(customSort: ['displayedField' => 'ASC, entity.hiddenField DESC']);
 
@@ -329,7 +326,7 @@ class EntityRepositoryTest extends TestCase
     {
         // ?sort[hiddenField]=ASC must not suppress setDefaultSort(['hiddenField' => 'DESC']):
         // the customSort entry is rejected, the defaultSort entry still applies
-        $entityDto = $this->createEntityDto('App\Entity\Product', ['hiddenField']);
+        $entityDto = $this->createEntityDto(['hiddenField']);
         $fields = new FieldCollection([]);
         $searchDto = $this->createSearchDtoForSort(
             customSort: ['hiddenField' => 'ASC'],
@@ -349,7 +346,7 @@ class EntityRepositoryTest extends TestCase
     public function testDefaultSortByFieldAbsentFromFieldCollectionIsStillApplied(): void
     {
         // developer-supplied default sort is trusted unconditionally
-        $entityDto = $this->createEntityDto('App\Entity\Product', ['createdAt']);
+        $entityDto = $this->createEntityDto(['createdAt']);
         $fields = new FieldCollection([]);
         $searchDto = $this->createSearchDtoForSort(defaultSort: ['createdAt' => 'DESC']);
 
@@ -365,7 +362,7 @@ class EntityRepositoryTest extends TestCase
 
     public function testValidCustomSortOverridesDefaultSortForSameKey(): void
     {
-        $entityDto = $this->createEntityDto('App\Entity\Product', ['displayedField']);
+        $entityDto = $this->createEntityDto(['displayedField']);
         $fields = new FieldCollection([$this->createField('displayedField', true)]);
         $searchDto = $this->createSearchDtoForSort(
             customSort: ['displayedField' => 'ASC'],
@@ -384,7 +381,7 @@ class EntityRepositoryTest extends TestCase
 
     public function testResolveNestedAssociationsWithSimpleProperty(): void
     {
-        $rootEntityDto = $this->createEntityDto('App\Entity\Post', ['title' => ['type' => 'string']], []);
+        $rootEntityDto = $this->createEntityDto(['title' => ['type' => 'string']], [], 'App\Entity\Post');
 
         $resolved = $this->entityRepository->resolveNestedAssociations(null, $rootEntityDto, 'title');
 
@@ -395,8 +392,8 @@ class EntityRepositoryTest extends TestCase
 
     public function testResolveNestedAssociationsWithNestedProperty(): void
     {
-        $authorEntityDto = $this->createEntityDto('App\Entity\User', ['name' => ['type' => 'string']], []);
-        $rootEntityDto = $this->createEntityDto('App\Entity\Post', [], ['author' => 'App\Entity\User']);
+        $authorEntityDto = $this->createEntityDto(['name' => ['type' => 'string']], [], 'App\Entity\User');
+        $rootEntityDto = $this->createEntityDto([], ['author' => 'App\Entity\User'], 'App\Entity\Post');
 
         $this->entityFactory->expects(self::once())
             ->method('create')
@@ -417,8 +414,8 @@ class EntityRepositoryTest extends TestCase
 
     public function testResolveNestedAssociationsEndingWithAssociation(): void
     {
-        $categoryEntityDto = $this->createEntityDto('App\Entity\Category', [], ['parent' => 'App\Entity\Category']);
-        $rootEntityDto = $this->createEntityDto('App\Entity\Post', [], ['category' => 'App\Entity\Category']);
+        $categoryEntityDto = $this->createEntityDto([], ['parent' => 'App\Entity\Category'], 'App\Entity\Category');
+        $rootEntityDto = $this->createEntityDto([], ['category' => 'App\Entity\Category'], 'App\Entity\Post');
 
         $this->entityFactory->expects(self::once())
             ->method('create')
@@ -444,8 +441,8 @@ class EntityRepositoryTest extends TestCase
 
     public function testResolveNestedAssociationsDoesNotDuplicateJoins(): void
     {
-        $authorEntityDto = $this->createEntityDto('App\Entity\User', ['name' => ['type' => 'string']], []);
-        $rootEntityDto = $this->createEntityDto('App\Entity\Post', [], ['author' => 'App\Entity\User']);
+        $authorEntityDto = $this->createEntityDto(['name' => ['type' => 'string']], [], 'App\Entity\User');
+        $rootEntityDto = $this->createEntityDto([], ['author' => 'App\Entity\User'], 'App\Entity\Post');
 
         $this->entityFactory->method('create')->willReturn($authorEntityDto);
 
@@ -458,32 +455,12 @@ class EntityRepositoryTest extends TestCase
 
     public function testResolveNestedAssociationsThrowsOnInvalidProperty(): void
     {
-        $rootEntityDto = $this->createEntityDto('App\Entity\Post', ['title' => ['type' => 'string']], []);
+        $rootEntityDto = $this->createEntityDto(['title' => ['type' => 'string']], [], 'App\Entity\Post');
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('The "invalid" property is not valid');
 
         $this->entityRepository->resolveNestedAssociations(null, $rootEntityDto, 'invalid');
-    }
-
-    private function createEntityDto(string $fqcn = 'App\Entity\Product', array $mappedFields = [], array $mappedAssociations = []): EntityDto
-    {
-        $classMetadata = $this->createMock(ClassMetadata::class);
-        $classMetadata->fieldMappings = $mappedFields;
-        $classMetadata->method('getSingleIdentifierFieldName')->willReturn('id');
-        $classMetadata->method('hasField')->willReturnCallback(static fn (string $name): bool => \in_array($name, $mappedFields, true));
-        $classMetadata->method('getFieldNames')->willReturn(array_keys($mappedFields));
-        $classMetadata->method('getFieldMapping')->willReturnCallback(
-            static fn (string $name): array => $mappedFields[$name] ?? throw new \InvalidArgumentException()
-        );
-        $classMetadata->method('hasAssociation')->willReturnCallback(
-            static fn (string $name): bool => isset($mappedAssociations[$name])
-        );
-        $classMetadata->method('getAssociationTargetClass')->willReturnCallback(
-            static fn (string $name): string => $mappedAssociations[$name] ?? throw new \InvalidArgumentException()
-        );
-
-        return new EntityDto($fqcn, $classMetadata);
     }
 
     private function createSearchDto(string $query = '', array $sort = [], ?array $appliedFilters = []): SearchDto
@@ -505,6 +482,26 @@ class EntityRepositoryTest extends TestCase
     private function createSearchDtoForSort(array $customSort = [], array $defaultSort = []): SearchDto
     {
         return new SearchDto(new Request(), null, '', $defaultSort, $customSort, []);
+    }
+
+    private function createEntityDto(array $mappedFields = [], array $mappedAssociations = [], string $fqcn = 'App\Entity\Product'): EntityDto
+    {
+        $classMetadata = $this->createMock(ClassMetadata::class);
+        $classMetadata->fieldMappings = $mappedFields;
+        $classMetadata->method('getSingleIdentifierFieldName')->willReturn('id');
+        $classMetadata->method('hasField')->willReturnCallback(static fn (string $name): bool => \in_array($name, $mappedFields, true));
+        $classMetadata->method('getFieldNames')->willReturn(array_keys($mappedFields));
+        $classMetadata->method('getFieldMapping')->willReturnCallback(
+            static fn (string $name): array => $mappedFields[$name] ?? throw new \InvalidArgumentException()
+        );
+        $classMetadata->method('hasAssociation')->willReturnCallback(
+            static fn (string $name): bool => isset($mappedAssociations[$name])
+        );
+        $classMetadata->method('getAssociationTargetClass')->willReturnCallback(
+            static fn (string $name): string => $mappedAssociations[$name] ?? throw new \InvalidArgumentException()
+        );
+
+        return new EntityDto($fqcn, $classMetadata);
     }
 
     private function createField(string $property, bool $sortable): FieldInterface
