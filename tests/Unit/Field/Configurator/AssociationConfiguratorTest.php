@@ -278,6 +278,7 @@ class AssociationConfiguratorTest extends AbstractFieldTest
             static::getContainer()->get(FieldFactory::class),
             $authChecker,
             static::getContainer()->get(AdminContextFactory::class),
+            static::getContainer()->get(EntityRepository::class),
         );
     }
 

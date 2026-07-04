@@ -51,7 +51,7 @@ class CollectionConfiguratorTest extends AbstractFieldTest
         yield [CollectionField::new('metaData')];
     }
 
-    public function testA(): void
+    public function testNestedCollections(): void
     {
         $field = CollectionField::new('leadDeveloper.issues');
         $field->setCustomOption(CollectionField::OPTION_ENTRY_USES_CRUD_FORM, true);
@@ -61,7 +61,7 @@ class CollectionConfiguratorTest extends AbstractFieldTest
             'The "leadDeveloper.issues" collection field of "EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Controller\ProjectDomain\ProjectCrudController" wants to render its entries using an EasyAdmin CRUD form. However, no CRUD form was found related to this field. You can either create a CRUD controller for the entity "EasyCorp\Bundle\EasyAdminBundle\Tests\Functional\Apps\DefaultApp\Entity\ProjectDomain\ProjectIssue" or pass the CRUD controller to use as the first argument of the "useEntryCrudForm()" method.'
         );
 
-        $this->configure($field, controllerFqcn: ProjectCrudController::class);
+        $this->configure($field, pageName: Crud::PAGE_EDIT, controllerFqcn: ProjectCrudController::class);
     }
 
     /**

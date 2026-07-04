@@ -466,19 +466,21 @@ class EntityRepositoryTest extends TestCase
         $this->entityRepository->resolveNestedAssociations(null, $rootEntityDto, 'invalid');
     }
 
-    private function createEntityDto(string $fqcn = 'App\Entity\Product', array $fieldMappings = [], array $associations = []): EntityDto
+    private function createEntityDto(string $fqcn = 'App\Entity\Product', array $mappedFields = [], array $mappedAssociations = []): EntityDto
     {
         $classMetadata = $this->createMock(ClassMetadata::class);
-        $classMetadata->fieldMappings = $fieldMappings;
-        $classMetadata->method('getFieldNames')->willReturn(array_keys($fieldMappings));
+        $classMetadata->fieldMappings = $mappedFields;
+        $classMetadata->method('getSingleIdentifierFieldName')->willReturn('id');
+        $classMetadata->method('hasField')->willReturnCallback(static fn (string $name): bool => \in_array($name, $mappedFields, true));
+        $classMetadata->method('getFieldNames')->willReturn(array_keys($mappedFields));
         $classMetadata->method('getFieldMapping')->willReturnCallback(
-            static fn (string $name): array => $fieldMappings[$name] ?? throw new \InvalidArgumentException()
+            static fn (string $name): array => $mappedFields[$name] ?? throw new \InvalidArgumentException()
         );
         $classMetadata->method('hasAssociation')->willReturnCallback(
-            static fn (string $name): bool => isset($associations[$name])
+            static fn (string $name): bool => isset($mappedAssociations[$name])
         );
         $classMetadata->method('getAssociationTargetClass')->willReturnCallback(
-            static fn (string $name): string => $associations[$name] ?? throw new \InvalidArgumentException()
+            static fn (string $name): string => $mappedAssociations[$name] ?? throw new \InvalidArgumentException()
         );
 
         return new EntityDto($fqcn, $classMetadata);
